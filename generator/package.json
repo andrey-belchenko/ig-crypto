@@ -1,0 +1,19 @@
+{
+  "name": "pdf-generator",
+  "version": "1.0.0",
+  "description": "Generates large PDF documents with high-resolution images",
+  "main": "generate-pdf.js",
+  "scripts": {
+    "generate": "node generate-pdf.js"
+  },
+  "keywords": [
+    "pdf",
+    "generator",
+    "images"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "pdfkit": "^0.14.0"
+  }
+}
