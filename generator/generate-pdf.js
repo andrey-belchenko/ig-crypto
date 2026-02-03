@@ -6,7 +6,7 @@ const path = require('path');
 // Parse command-line arguments
 function parseArgs() {
   const args = process.argv.slice(2);
-  let pageCount = 10; // default
+  let pageCount = 900; // default
 
   for (let i = 0; i < args.length; i++) {
     if ((args[i] === '--pages' || args[i] === '-p') && args[i + 1]) {
@@ -159,7 +159,7 @@ async function generatePDF(pageCount) {
   const imageBuffer = await generateImageTemplate(largeFont, smallFont);
   console.log('Image template generated. Starting PDF generation...');
   
-  const outputPath = path.join(__dirname, 'output.pdf');
+  const outputPath = path.join(__dirname, 'data', 'output.pdf');
   const doc = new PDFDocument({
     size: 'A4',
     margin: 0
