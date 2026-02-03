@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "crypto-pro-cadesplugin": "^1.1.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

@@ -4,40 +4,40 @@ overview: Реализация формы для подписания докум
 todos:
   - id: install-deps
     content: Установить официальный пакет crypto-pro-cadesplugin через npm
-    status: pending
+    status: completed
   - id: create-types
     content: Создать TypeScript типы для CryptoPro API (если пакет их не предоставляет)
-    status: pending
+    status: completed
     dependencies:
       - install-deps
   - id: implement-form
     content: Реализовать форму с выбором файла и кнопкой подписания в App.tsx
-    status: pending
+    status: completed
     dependencies:
       - install-deps
   - id: implement-plugin-check
     content: Добавить проверку доступности CryptoPro Plugin
-    status: pending
+    status: completed
     dependencies:
       - implement-form
   - id: implement-cert-selection
     content: Реализовать получение и выбор сертификата для подписания
-    status: pending
+    status: completed
     dependencies:
       - implement-plugin-check
   - id: implement-signing
     content: Реализовать логику чтения файла, вычисления хеша и создания отсоединенной подписи
-    status: pending
+    status: completed
     dependencies:
       - implement-cert-selection
   - id: implement-download
     content: Реализовать скачивание файла подписи [имя_файла].sig
-    status: pending
+    status: completed
     dependencies:
       - implement-signing
   - id: add-error-handling
     content: Добавить обработку ошибок и информативные сообщения для пользователя
-    status: pending
+    status: completed
     dependencies:
       - implement-download
 ---
