@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vanilla Sign Example</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .section {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="file"],
+        select,
+        button {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        button:hover:not(:disabled) {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        button.sign-btn {
+            background-color: #28a745;
+        }
+        button.sign-btn:hover:not(:disabled) {
+            background-color: #218838;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        .status.error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .status.success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .status.info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+        }
+        .file-info {
+            margin-top: 5px;
+            color: #666;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Подписание файла</h1>
+
+    <div class="section">
+        <button id="activateBtn" onclick="activatePlugin()">Активировать плагин</button>
+        <div id="pluginStatus"></div>
+    </div>
+
+    <div class="section" id="certSection" style="display: none;">
+        <label for="certSelect">Выберите сертификат:</label>
+        <select id="certSelect" onchange="onCertChange()">
+            <option value="">Загрузка...</option>
+        </select>
+    </div>
+
+    <div class="section" id="fileSection" style="display: none;">
+        <label for="fileInput">Выберите файл для подписания:</label>
+        <input type="file" id="fileInput" onchange="onFileChange()">
+        <div id="fileInfo" class="file-info"></div>
+    </div>
+
+    <div class="section" id="signSection" style="display: none;">
+        <button id="signBtn" class="sign-btn" onclick="signFile()" disabled>Подписать файл</button>
+        <div id="signStatus"></div>
+    </div>
+
+    <script src="cadesplugin_api.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
