@@ -1,3 +1,10 @@
+        Подпись файла с использованием FileAPI и чтением файла по частям
+Пример создания и проверки подписи файла с использованием FileAPI и чтением файла по частям
+
+HTML
+<script language="javascript" src="cadesplugin_api.js"></script>
+        
+        
         function signCreate(certSubjectName, oHashedData) {
             var oStore = cadesplugin.CreateObject("CAdESCOM.Store");
             oStore.Open(cadesplugin.CAPICOM_CURRENT_USER_STORE, cadesplugin.CAPICOM_MY_STORE,
