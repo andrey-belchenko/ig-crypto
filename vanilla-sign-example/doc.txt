@@ -1,0 +1,138 @@
+        function signCreate(certSubjectName, oHashedData) {
+            var oStore = cadesplugin.CreateObject("CAdESCOM.Store");
+            oStore.Open(cadesplugin.CAPICOM_CURRENT_USER_STORE, cadesplugin.CAPICOM_MY_STORE,
+                cadesplugin.CAPICOM_STORE_OPEN_MAXIMUM_ALLOWED);
+
+            var oCertificates = oStore.Certificates.Find(
+                cadesplugin.CAPICOM_CERTIFICATE_FIND_SUBJECT_NAME, certSubjectName);
+            if (oCertificates.Count == 0) {
+                alert("Certificate not found: " + certSubjectName);
+                return;
+            }
+            var oCertificate = oCertificates.Item(1);
+            var oSigner = cadesplugin.CreateObject("CAdESCOM.CPSigner");
+            oSigner.Certificate = oCertificate;
+            oSigner.CheckCertificate = true;
+
+            var oSignedData = cadesplugin.CreateObject("CAdESCOM.CadesSignedData");
+            oSignedData.ContentEncoding = cadesplugin.CADESCOM_BASE64_TO_BINARY;
+
+            try {
+                var sSignedMessage = oSignedData.SignHash(oHashedData, oSigner, cadesplugin.CADESCOM_CADES_BES);
+            } catch (err) {
+                alert("Failed to create signature. Error: " + cadesplugin.getLastError(err));
+                return;
+            }
+
+            oStore.Close();
+
+            return sSignedMessage;
+        }
+
+        function Verify(sSignedMessage, oHashedData) {
+            var oSignedData = cadesplugin.CreateObject("CAdESCOM.CadesSignedData");
+            try {
+                oSignedData.VerifyHash(oHashedData, sSignedMessage, cadesplugin.CADESCOM_CADES_BES);
+            } catch (err) {
+                alert("Failed to verify signature. Error: " + cadesplugin.getLastError(err));
+                return false;
+            }
+
+            return true;
+        }
+
+        function signFile(file, certSubjectName) {
+            var blobSlice = File.prototype.slice || File.prototype.mozSlice || File.prototype.webkitSlice;
+            var chunkSize = 3 * 1024 * 1024; // 3MB
+            var chunks = Math.ceil(file.size / chunkSize);
+            var currentChunk = 0;
+
+            var oHashedData = cadesplugin.CreateObject("CAdESCOM.HashedData");
+            oHashedData.DataEncoding = cadesplugin.CADESCOM_BASE64_TO_BINARY;
+
+            var progress = document.getElementById("progressbar").childNodes.item(1);
+
+            var frOnload = function(e) {
+                var header = ";base64,";
+                var sFileData = e.target.result;
+                var sBase64Data = sFileData.substr(sFileData.indexOf(header) + header.length);
+
+                oHashedData.Hash(sBase64Data);
+
+                var percentLoaded = Math.round((currentChunk / chunks) * 100);
+                // Increase the progress bar length.
+                if (percentLoaded <= 100) {
+                    progress.style.width = percentLoaded + '%';
+                    progress.textContent = percentLoaded + '%';
+                }
+
+                currentChunk++;
+
+                if (currentChunk < chunks) {
+                    loadNext();
+                }
+                else {
+                    document.getElementById("progressbar").style.visibility = "hidden";
+                    var signedMessage = signCreate(certSubjectName, oHashedData);
+                    // Выводим отделенную подпись в BASE64 на страницу
+                    // Такая подпись должна проверяться в КриптоАРМ и cryptcp.exe
+                    document.getElementById("signature").innerHTML = signedMessage;
+
+                    // Проверим подпись
+                    var verifyResult = Verify(signedMessage, oHashedData);
+                    if (verifyResult) {
+                        alert("Signature verified");
+                    }
+                }
+            };
+
+            var frOnerror = function() {
+                alert("File load error.");
+            };
+
+            function loadNext() {
+                var fileReader = new FileReader();
+                fileReader.onload = frOnload;
+                fileReader.onerror = frOnerror;
+
+                var start = currentChunk * chunkSize,
+                end = ((start + chunkSize) >= file.size) ? file.size : start + chunkSize;
+
+                fileReader.readAsDataURL(blobSlice.call(file, start, end));
+            };
+
+            loadNext();
+        }
+
+        function doCheck() {
+            // Проверяем, работает ли File API
+            if (window.FileReader) {
+                // Браузер поддерживает File API.
+            } else {
+                alert("The File APIs are not fully supported in this browser.");
+            }
+            var fileReader = new FileReader();
+            if (typeof(fileReader.readAsDataURL)!="function") {
+                alert("Method readAsDataURL() is not supported in FileReader.");
+                return;
+            }
+        }
+
+        function doSign() {
+            // Проверяем, работает ли File API
+            doCheck();
+            if (1 != document.getElementById("uploadFile").files.length) {
+                alert("Select the file.");
+                return;
+            }
+
+            var oFile = document.getElementById("uploadFile").files[0];
+
+            var oCertName = document.getElementById("CertName");
+            var sCertName = oCertName.value; // Здесь следует заполнить SubjectName сертификата
+            if ("" == sCertName) {
+                alert("Введите имя сертификата (CN).");
+                return;
+            }
+            signFile(oFile, sCertName);
+        }
