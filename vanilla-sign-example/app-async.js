@@ -216,22 +216,38 @@ function downloadSignature(signatureBase64, originalFileName) {
     }
 }
 
-// Determine the hash algorithm constant from a certificate's public key OID
+// Determine the hash algorithm constant and name from a certificate's public key OID
 function getHashAlgorithmByOid(algorithmOid) {
     // GOST R 34.10-2012 (256-bit) → GOST R 34.11-2012 (256-bit)
     if (algorithmOid === "1.2.643.7.1.1.1.1") {
-        return cadesplugin.CADESCOM_HASH_ALGORITHM_CP_GOST_3411_2012_256; // 101
+        return {
+            id: cadesplugin.CADESCOM_HASH_ALGORITHM_CP_GOST_3411_2012_256, // 101
+            name: "GOST R 34.11-2012 (256-bit)",
+            keyAlgo: "GOST R 34.10-2012 (256-bit)"
+        };
     }
     // GOST R 34.10-2012 (512-bit) → GOST R 34.11-2012 (512-bit)
     if (algorithmOid === "1.2.643.7.1.1.1.2") {
-        return cadesplugin.CADESCOM_HASH_ALGORITHM_CP_GOST_3411_2012_512; // 102
+        return {
+            id: cadesplugin.CADESCOM_HASH_ALGORITHM_CP_GOST_3411_2012_512, // 102
+            name: "GOST R 34.11-2012 (512-bit)",
+            keyAlgo: "GOST R 34.10-2012 (512-bit)"
+        };
     }
     // GOST R 34.10-2001 → GOST R 34.11-94
     if (algorithmOid === "1.2.643.2.2.19") {
-        return cadesplugin.CADESCOM_HASH_ALGORITHM_CP_GOST_3411; // 100
+        return {
+            id: cadesplugin.CADESCOM_HASH_ALGORITHM_CP_GOST_3411, // 100
+            name: "GOST R 34.11-94",
+            keyAlgo: "GOST R 34.10-2001"
+        };
     }
     // RSA / other → SHA-256
-    return cadesplugin.CADESCOM_HASH_ALGORITHM_SHA_256; // 4
+    return {
+        id: cadesplugin.CADESCOM_HASH_ALGORITHM_SHA_256, // 4
+        name: "SHA-256",
+        keyAlgo: "RSA"
+    };
 }
 
 // Sign file using async hash-based approach with chunked reading
@@ -283,17 +299,26 @@ async function signFile() {
             const oCertificate = yield oCertificates.Item(1);
 
             // Detect hash algorithm from certificate's public key
-            let hashAlgorithm;
+            let hashAlgo;
             try {
                 const oPublicKey = yield oCertificate.PublicKey();
                 const oAlgorithm = yield oPublicKey.Algorithm;
                 const algorithmOid = yield oAlgorithm.Value;
-                hashAlgorithm = getHashAlgorithmByOid(algorithmOid);
-                console.log("Detected certificate algorithm OID:", algorithmOid, "→ hash algorithm:", hashAlgorithm);
+                hashAlgo = getHashAlgorithmByOid(algorithmOid);
+                console.log("Detected certificate algorithm OID:", algorithmOid, "→ hash algorithm:", hashAlgo.name, "(", hashAlgo.id, ")");
             } catch (algoErr) {
                 console.warn("Could not detect certificate algorithm, using GOST 2012-256 as default:", algoErr);
-                hashAlgorithm = cadesplugin.CADESCOM_HASH_ALGORITHM_CP_GOST_3411_2012_256;
+                hashAlgo = {
+                    id: cadesplugin.CADESCOM_HASH_ALGORITHM_CP_GOST_3411_2012_256,
+                    name: "GOST R 34.11-2012 (256-bit)",
+                    keyAlgo: "unknown"
+                };
             }
+
+            // Display detected algorithm on the page
+            const algoInfo = document.getElementById('algoInfo');
+            algoInfo.innerHTML = `<strong>Ключ:</strong> ${hashAlgo.keyAlgo} &nbsp;→&nbsp; <strong>Хеш:</strong> ${hashAlgo.name}`;
+            algoInfo.style.display = 'block';
 
             // Step 2: Create HashedData with the correct algorithm matching the certificate
             const blobSlice = File.prototype.slice || File.prototype.mozSlice || File.prototype.webkitSlice;
@@ -302,7 +327,7 @@ async function signFile() {
             let currentChunk = 0;
 
             const oHashedData = yield cadesplugin.CreateObjectAsync("CAdESCOM.HashedData");
-            yield oHashedData.propset_Algorithm(hashAlgorithm);
+            yield oHashedData.propset_Algorithm(hashAlgo.id);
             yield oHashedData.propset_DataEncoding(cadesplugin.CADESCOM_BASE64_TO_BINARY);
 
             // Show progress bar

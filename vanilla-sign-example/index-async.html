@@ -72,6 +72,14 @@
             color: #666;
             font-size: 12px;
         }
+        .algo-info {
+            padding: 8px 12px;
+            margin-bottom: 10px;
+            background-color: #e2e3e5;
+            color: #383d41;
+            border-radius: 4px;
+            font-size: 13px;
+        }
         .progress-container {
             margin: 10px 0;
             display: none;
@@ -123,6 +131,7 @@
     </div>
 
     <div class="section" id="signSection" style="display: none;">
+        <div id="algoInfo" class="algo-info" style="display: none;"></div>
         <button id="signBtn" class="sign-btn" onclick="signFile()" disabled>Подписать файл</button>
         <div id="signStatus"></div>
     </div>
