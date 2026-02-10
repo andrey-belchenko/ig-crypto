@@ -1,17 +1,38 @@
+// #region agent log
+console.log('[DEBUG] Script loaded, checking cadesplugin:', typeof cadesplugin, cadesplugin);
+window.addEventListener('error', function(e) {
+    console.error('[DEBUG] Global error:', e.error, e.message, e.filename, e.lineno);
+});
+window.addEventListener('unhandledrejection', function(e) {
+    console.error('[DEBUG] Unhandled promise rejection:', e.reason);
+});
+// #endregion
+
 // Global state
 let pluginAvailable = false;
 let certificates = [];
 let selectedCertSubjectName = '';
 let selectedFile = null;
 let oHashedData = null;
+let cadespluginObj = null; // Store resolved plugin object for synchronous use
 
 // Check if cadesplugin is available
 function isCadesPluginDefined() {
-    return typeof cadesplugin !== 'undefined' && cadesplugin.CreateObject;
+    const isDefined = typeof cadesplugin !== 'undefined';
+    // #region agent log
+    console.log('[DEBUG] isCadesPluginDefined check:', isDefined, typeof cadesplugin);
+    // #endregion
+    return isDefined;
 }
 
 // Activate plugin
 async function activatePlugin() {
+    // #region agent log
+    const logData1 = {location:'app-hash.js:15',message:'activatePlugin called',data:{cadespluginDefined:typeof cadesplugin !== 'undefined',cadespluginType:typeof cadesplugin,cadespluginIsPromise:cadesplugin instanceof Promise},timestamp:Date.now(),runId:'run1',hypothesisId:'A'};
+    console.log('[DEBUG]', logData1);
+    fetch('http://127.0.0.1:7243/ingest/7c3b4314-3d55-4e03-93dc-50b6fc33d15e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logData1)}).catch((e)=>console.error('[DEBUG] Log fetch failed:',e));
+    // #endregion
+    
     const activateBtn = document.getElementById('activateBtn');
     const pluginStatus = document.getElementById('pluginStatus');
     
@@ -19,17 +40,106 @@ async function activatePlugin() {
     pluginStatus.innerHTML = '<div class="status info">Проверка доступности плагина...</div>';
 
     if (!isCadesPluginDefined()) {
+        // #region agent log
+        const logData2 = {location:'app-hash.js:26',message:'cadesplugin not defined',data:{},timestamp:Date.now(),runId:'run1',hypothesisId:'A'};
+        console.log('[DEBUG]', logData2);
+        fetch('http://127.0.0.1:7243/ingest/7c3b4314-3d55-4e03-93dc-50b6fc33d15e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logData2)}).catch((e)=>console.error('[DEBUG] Log fetch failed:',e));
+        // #endregion
         pluginStatus.innerHTML = '<div class="status error">Плагин КриптоПро не найден. Убедитесь, что плагин установлен.</div>';
         activateBtn.disabled = false;
         return;
     }
 
     try {
-        // Wait for plugin to be ready
-        await cadesplugin;
+        // #region agent log
+        const logData3 = {location:'app-hash.js:31',message:'Before awaiting cadesplugin Promise',data:{cadespluginType:typeof cadesplugin,isPromise:cadesplugin instanceof Promise,isObject:typeof cadesplugin === 'object'},timestamp:Date.now(),runId:'run1',hypothesisId:'B'};
+        console.log('[DEBUG]', logData3);
+        fetch('http://127.0.0.1:7243/ingest/7c3b4314-3d55-4e03-93dc-50b6fc33d15e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logData3)}).catch((e)=>console.error('[DEBUG] Log fetch failed:',e));
+        // #endregion
+        
+        // Wait for plugin promise to resolve
+        // cadesplugin is a Promise that resolves to the plugin object
+        // #region agent log
+        console.log('[DEBUG] About to await cadesplugin, type:', typeof cadesplugin);
+        // #endregion
+        
+        // Check if cadesplugin is already resolved (not a Promise)
+        if (cadesplugin instanceof Promise) {
+            // #region agent log
+            console.log('[DEBUG] Awaiting Promise...');
+            // #endregion
+            // The Promise resolves to undefined, but cadesplugin itself becomes the plugin object
+            // After awaiting, cadesplugin (the global variable) will have CreateObject method
+            await cadesplugin;
+            // #region agent log
+            console.log('[DEBUG] Promise resolved, checking cadesplugin:', typeof cadesplugin, 'has CreateObject:', typeof cadesplugin?.CreateObject);
+            // #endregion
+            
+            // After Promise resolves, use cadesplugin directly (not the resolved value)
+            // #region agent log
+            const pluginProps = {
+                hasCreateObject: typeof cadesplugin.CreateObject,
+                hasCreateObjectAsync: typeof cadesplugin.CreateObjectAsync,
+                hasAsyncSpawn: typeof cadesplugin.async_spawn,
+                cadespluginType: typeof cadesplugin,
+                isPromise: cadesplugin instanceof Promise,
+                keys: Object.keys(cadesplugin).slice(0, 15)
+            };
+            console.log('[DEBUG] After await, cadesplugin properties:', pluginProps);
+            // #endregion
+            
+            // Check if CreateObject exists (synchronous API) or CreateObjectAsync (async API)
+            if (typeof cadesplugin === 'object') {
+                // Properties are added to the cadesplugin object, check if they're accessible
+                if (typeof cadesplugin.CreateObject === 'function') {
+                    // Synchronous API available (IE/NPAPI)
+                    cadespluginObj = cadesplugin;
+                } else if (typeof cadesplugin.CreateObjectAsync === 'function' || typeof cadesplugin.async_spawn === 'function') {
+                    // Async API available (Chrome/Edge with extension)
+                    // For hash-based version following doc.txt, we need synchronous API
+                    // But we can adapt to use async_spawn if needed
+                    console.warn('[DEBUG] Browser uses async API, adapting hash-based version to use async_spawn');
+                    cadespluginObj = cadesplugin; // We'll use async_spawn wrapper
+                } else {
+                    // Wait a bit more for properties to be added
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                    if (typeof cadesplugin.CreateObject === 'function') {
+                        cadespluginObj = cadesplugin;
+                    } else {
+                        throw new Error('cadesplugin Promise resolved but plugin object does not have CreateObject or CreateObjectAsync method. Available methods: ' + Object.keys(cadesplugin).join(', '));
+                    }
+                }
+            } else {
+                throw new Error('cadesplugin is not an object after Promise resolution, type: ' + typeof cadesplugin);
+            }
+        } else if (typeof cadesplugin === 'object' && cadesplugin.CreateObject) {
+            // Already resolved, use directly
+            cadespluginObj = cadesplugin;
+        } else {
+            throw new Error('cadesplugin is not a Promise and does not have CreateObject method');
+        }
+        
+        // #region agent log
+        const logData4 = {location:'app-hash.js:35',message:'cadesplugin Promise resolved',data:{cadespluginObjType:typeof cadespluginObj,cadespluginObjIsNull:cadespluginObj === null,hasCreateObject:typeof cadespluginObj?.CreateObject === 'function',cadespluginHasCreateObject:typeof cadesplugin?.CreateObject === 'function'},timestamp:Date.now(),runId:'run1',hypothesisId:'C'};
+        console.log('[DEBUG]', logData4);
+        fetch('http://127.0.0.1:7243/ingest/7c3b4314-3d55-4e03-93dc-50b6fc33d15e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logData4)}).catch((e)=>console.error('[DEBUG] Log fetch failed:',e));
+        // #endregion
         
         // Test plugin by creating an object
-        const oAbout = cadesplugin.CreateObject("CAdESCOM.About");
+        // #region agent log
+        const logData5 = {location:'app-hash.js:40',message:'Before CreateObject call',data:{hasCreateObject:typeof cadespluginObj?.CreateObject === 'function'},timestamp:Date.now(),runId:'run1',hypothesisId:'D'};
+        console.log('[DEBUG]', logData5);
+        fetch('http://127.0.0.1:7243/ingest/7c3b4314-3d55-4e03-93dc-50b6fc33d15e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logData5)}).catch((e)=>console.error('[DEBUG] Log fetch failed:',e));
+        // #endregion
+        
+        const oAbout = cadespluginObj.CreateObject("CAdESCOM.About");
+        
+        // #region agent log
+        const logData6 = {location:'app-hash.js:44',message:'CreateObject succeeded',data:{oAboutType:typeof oAbout,hasPluginVersion:typeof oAbout?.PluginVersion === 'string'},timestamp:Date.now(),runId:'run1',hypothesisId:'E'};
+        console.log('[DEBUG]', logData6);
+        fetch('http://127.0.0.1:7243/ingest/7c3b4314-3d55-4e03-93dc-50b6fc33d15e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logData6)}).catch((e)=>console.error('[DEBUG] Log fetch failed:',e));
+        // #endregion
+        
         const version = oAbout.PluginVersion;
         
         pluginAvailable = true;
@@ -39,8 +149,17 @@ async function activatePlugin() {
         // Load certificates
         await loadCertificates();
     } catch (error) {
+        // #region agent log
+        const logData7 = {location:'app-hash.js:54',message:'Error caught in activatePlugin',data:{errorName:error?.name,errorMessage:error?.message,errorStack:error?.stack?.substring(0,500),errorString:String(error),errorType:typeof error},timestamp:Date.now(),runId:'run1',hypothesisId:'C'};
+        console.error('[DEBUG] ERROR in activatePlugin:', error);
+        console.error('[DEBUG] ERROR details:', logData7);
+        fetch('http://127.0.0.1:7243/ingest/7c3b4314-3d55-4e03-93dc-50b6fc33d15e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logData7)}).catch((e)=>console.error('[DEBUG] Log fetch failed:',e));
+        // #endregion
+        
         pluginAvailable = false;
-        const errorMsg = error.message || 'Неизвестная ошибка';
+        cadespluginObj = null;
+        const errorMsg = error?.message || error?.toString() || String(error) || 'Неизвестная ошибка';
+        console.error('[DEBUG] Showing error to user:', errorMsg);
         pluginStatus.innerHTML = `<div class="status error">Ошибка активации плагина: ${errorMsg}</div>`;
         activateBtn.disabled = false;
     }
@@ -59,14 +178,16 @@ async function loadCertificates() {
     }
 
     try {
-        await cadesplugin;
+        if (!cadespluginObj) {
+            throw new Error('Плагин не активирован');
+        }
         
-        // Create store object
-        const oStore = cadesplugin.CreateObject("CAdESCOM.Store");
+        // Create store object (synchronous after plugin is resolved)
+        const oStore = cadespluginObj.CreateObject("CAdESCOM.Store");
         oStore.Open(
-            cadesplugin.CAPICOM_CURRENT_USER_STORE,
-            cadesplugin.CAPICOM_MY_STORE,
-            cadesplugin.CAPICOM_STORE_OPEN_MAXIMUM_ALLOWED
+            cadespluginObj.CAPICOM_CURRENT_USER_STORE,
+            cadespluginObj.CAPICOM_MY_STORE,
+            cadespluginObj.CAPICOM_STORE_OPEN_MAXIMUM_ALLOWED
         );
 
         // Get certificates collection
@@ -222,71 +343,81 @@ function doCheck() {
     return true;
 }
 
-// Create signature from hash
+// Create signature from hash (synchronous like in doc.txt)
 function signCreate(certSubjectName, oHashedData) {
-    try {
-        const oStore = cadesplugin.CreateObject("CAdESCOM.Store");
-        oStore.Open(
-            cadesplugin.CAPICOM_CURRENT_USER_STORE,
-            cadesplugin.CAPICOM_MY_STORE,
-            cadesplugin.CAPICOM_STORE_OPEN_MAXIMUM_ALLOWED
-        );
-
-        const oCertificates = oStore.Certificates.Find(
-            cadesplugin.CAPICOM_CERTIFICATE_FIND_SUBJECT_NAME,
-            certSubjectName
-        );
-        
-        if (oCertificates.Count == 0) {
-            oStore.Close();
-            throw new Error("Certificate not found: " + certSubjectName);
-        }
-        
-        const oCertificate = oCertificates.Item(1);
-        const oSigner = cadesplugin.CreateObject("CAdESCOM.CPSigner");
-        oSigner.Certificate = oCertificate;
-        oSigner.CheckCertificate = true;
-
-        const oSignedData = cadesplugin.CreateObject("CAdESCOM.CadesSignedData");
-        oSignedData.ContentEncoding = cadesplugin.CADESCOM_BASE64_TO_BINARY;
-
-        let sSignedMessage;
-        try {
-            sSignedMessage = oSignedData.SignHash(oHashedData, oSigner, cadesplugin.CADESCOM_CADES_BES);
-        } catch (err) {
-            oStore.Close();
-            throw new Error("Failed to create signature. Error: " + (cadesplugin.getLastError ? cadesplugin.getLastError(err) : err.message || err));
-        }
-
-        oStore.Close();
-        return sSignedMessage;
-    } catch (err) {
-        throw new Error(err.message || err);
+    if (!cadespluginObj) {
+        throw new Error("Плагин не активирован");
     }
+    
+    const oStore = cadespluginObj.CreateObject("CAdESCOM.Store");
+    oStore.Open(
+        cadespluginObj.CAPICOM_CURRENT_USER_STORE,
+        cadespluginObj.CAPICOM_MY_STORE,
+        cadespluginObj.CAPICOM_STORE_OPEN_MAXIMUM_ALLOWED
+    );
+
+    const oCertificates = oStore.Certificates.Find(
+        cadespluginObj.CAPICOM_CERTIFICATE_FIND_SUBJECT_NAME,
+        certSubjectName
+    );
+    
+    if (oCertificates.Count == 0) {
+        oStore.Close();
+        throw new Error("Certificate not found: " + certSubjectName);
+    }
+    
+    const oCertificate = oCertificates.Item(1);
+    const oSigner = cadespluginObj.CreateObject("CAdESCOM.CPSigner");
+    oSigner.Certificate = oCertificate;
+    oSigner.CheckCertificate = true;
+
+    const oSignedData = cadespluginObj.CreateObject("CAdESCOM.CadesSignedData");
+    oSignedData.ContentEncoding = cadespluginObj.CADESCOM_BASE64_TO_BINARY;
+
+    let sSignedMessage;
+    try {
+        sSignedMessage = oSignedData.SignHash(oHashedData, oSigner, cadespluginObj.CADESCOM_CADES_BES);
+    } catch (err) {
+        oStore.Close();
+        throw new Error("Failed to create signature. Error: " + (cadespluginObj.getLastError ? cadespluginObj.getLastError(err) : err.message || err));
+    }
+
+    oStore.Close();
+    return sSignedMessage;
 }
 
-// Verify signature
+// Verify signature (synchronous like in doc.txt)
 function Verify(sSignedMessage, oHashedData) {
+    if (!cadespluginObj) {
+        console.error("Плагин не активирован");
+        return false;
+    }
+    
     try {
-        const oSignedData = cadesplugin.CreateObject("CAdESCOM.CadesSignedData");
-        oSignedData.VerifyHash(oHashedData, sSignedMessage, cadesplugin.CADESCOM_CADES_BES);
+        const oSignedData = cadespluginObj.CreateObject("CAdESCOM.CadesSignedData");
+        oSignedData.VerifyHash(oHashedData, sSignedMessage, cadespluginObj.CADESCOM_CADES_BES);
         return true;
     } catch (err) {
-        console.error("Failed to verify signature. Error: " + (cadesplugin.getLastError ? cadesplugin.getLastError(err) : err.message || err));
+        console.error("Failed to verify signature. Error: " + (cadespluginObj.getLastError ? cadespluginObj.getLastError(err) : err.message || err));
         return false;
     }
 }
 
-// Sign file using hash-based approach with chunked reading
+// Sign file using hash-based approach with chunked reading (like in doc.txt)
 function signFile(file, certSubjectName) {
+    if (!cadespluginObj) {
+        alert("Плагин не активирован");
+        return;
+    }
+    
     const blobSlice = File.prototype.slice || File.prototype.mozSlice || File.prototype.webkitSlice;
     const chunkSize = 3 * 1024 * 1024; // 3MB
     const chunks = Math.ceil(file.size / chunkSize);
     let currentChunk = 0;
 
-    // Create HashedData object
-    oHashedData = cadesplugin.CreateObject("CAdESCOM.HashedData");
-    oHashedData.DataEncoding = cadesplugin.CADESCOM_BASE64_TO_BINARY;
+    // Create HashedData object (synchronous)
+    oHashedData = cadespluginObj.CreateObject("CAdESCOM.HashedData");
+    oHashedData.DataEncoding = cadespluginObj.CADESCOM_BASE64_TO_BINARY;
 
     const progressContainer = document.getElementById('progressContainer');
     const progressFill = document.getElementById('progressFill');
@@ -317,12 +448,13 @@ function signFile(file, certSubjectName) {
                 signStatus.innerHTML = '<div class="status info">Создание подписи...</div>';
                 
                 try {
+                    // Call signCreate synchronously (like in doc.txt)
                     const signedMessage = signCreate(certSubjectName, oHashedData);
                     
                     // Download signature file
                     downloadSignature(signedMessage, file.name);
                     
-                    // Verify signature
+                    // Verify signature synchronously (like in doc.txt)
                     const verifyResult = Verify(signedMessage, oHashedData);
                     if (verifyResult) {
                         signStatus.innerHTML = '<div class="status success">Файл успешно подписан и проверен! Файл подписи скачан.</div>';
@@ -387,7 +519,7 @@ function downloadSignature(signatureBase64, originalFileName) {
     }
 }
 
-// Main sign function
+// Main sign function (synchronous like in doc.txt)
 function doSign() {
     // Check File API
     if (!doCheck()) {
@@ -410,9 +542,12 @@ function doSign() {
     }
     
     signBtn.disabled = true;
+    
+    // Call signFile synchronously (like in doc.txt)
+    // Note: signFile uses async callbacks internally for file reading
     signFile(file, selectedCertSubjectName);
     
-    // Re-enable button after a delay (signing is async)
+    // Re-enable button after a delay (file reading is async)
     setTimeout(() => {
         signBtn.disabled = false;
     }, 1000);
