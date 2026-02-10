@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vanilla Sign Example (Hash-based)</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .section {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="file"],
+        input[type="text"],
+        select,
+        button {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        button:hover:not(:disabled) {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        button.sign-btn {
+            background-color: #28a745;
+        }
+        button.sign-btn:hover:not(:disabled) {
+            background-color: #218838;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        .status.error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .status.success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .status.info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+        }
+        .file-info {
+            margin-top: 5px;
+            color: #666;
+            font-size: 12px;
+        }
+        .progress-container {
+            margin: 10px 0;
+            display: none;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #f0f0f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background-color: #007bff;
+            width: 0%;
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Подписание файла (Hash-based)</h1>
+
+    <div class="section">
+        <button id="activateBtn" onclick="activatePlugin()">Активировать плагин</button>
+        <div id="pluginStatus"></div>
+    </div>
+
+    <div class="section" id="certSection" style="display: none;">
+        <label for="certSelect">Выберите сертификат:</label>
+        <select id="certSelect" onchange="onCertChange()">
+            <option value="">Загрузка...</option>
+        </select>
+        <small>Или введите Subject Name вручную:</small>
+        <input type="text" id="certNameInput" placeholder="CN=Имя сертификата" onchange="onCertNameChange()">
+    </div>
+
+    <div class="section" id="fileSection" style="display: none;">
+        <label for="fileInput">Выберите файл для подписания:</label>
+        <input type="file" id="fileInput" onchange="onFileChange()">
+        <div id="fileInfo" class="file-info"></div>
+        <div id="progressContainer" class="progress-container">
+            <div class="progress-bar">
+                <div id="progressFill" class="progress-fill">0%</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section" id="signSection" style="display: none;">
+        <button id="signBtn" class="sign-btn" onclick="doSign()" disabled>Подписать файл</button>
+        <div id="signStatus"></div>
+    </div>
+
+    <script src="cadesplugin_api.js"></script>
+    <script src="app-hash.js"></script>
+</body>
+</html>
