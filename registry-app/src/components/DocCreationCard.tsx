@@ -1,11 +1,11 @@
-import { Upload, message, Button, Space, Select, Progress, Input } from "antd";
-import { InboxOutlined, UploadOutlined } from "@ant-design/icons";
+import { Upload, message, Button, Select, Progress, Input } from "antd";
+import { UploadOutlined } from "@ant-design/icons";
 import type { UploadFile, UploadProps } from "antd";
 import { useState, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { FileItem, uploadFileToFileItemProps } from "./FileItem";
-import { prepareLegalDocument } from "../domain/create-legal-doc";
-import { DocumentType } from "../domain/domain-types";
+import { prepareLegalDocument, getSigKey } from "../domain/create-legal-doc";
+import { DocumentType, LegalDocument } from "../domain/domain-types";
 import {
   activatePlugin,
   loadCertificates,
@@ -25,6 +25,7 @@ function DocCreationCard() {
   const [uploading, setUploading] = useState(false);
   const [preparing, setPreparing] = useState(false);
   const [preparedJson, setPreparedJson] = useState<string | null>(null);
+  const [legalDocument, setLegalDocument] = useState<LegalDocument | null>(null);
   const [pluginAvailable, setPluginAvailable] = useState(false);
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [selectedCertIndex, setSelectedCertIndex] = useState<number | null>(
@@ -67,6 +68,15 @@ function DocCreationCard() {
     }
   }, [selectedCertIndex, certificates]);
 
+  // Helper functions for file naming
+  const getJsonFileName = (documentType: DocumentType | null): string => {
+    return documentType ? `${documentType}.json` : "document.json";
+  };
+
+  const getSigFileName = (documentType: DocumentType | null): string => {
+    return documentType ? `${documentType}.json.sig` : "document.json.sig";
+  };
+
   const handlePrepare = async () => {
     if (fileList.length === 0) {
       message.warning("Пожалуйста, выберите файлы для подготовки");
@@ -105,24 +115,20 @@ function DocCreationCard() {
       }
 
       // Calculate SHA256 hashes and prepare document with author
-      const documentData = await prepareLegalDocument(files, author);
+      const legalDocument = await prepareLegalDocument(files, author, selectedDocumentType!);
 
-      // Create JSON object with hashes, author, and document type
-      const jsonObject = {
-        hashes: documentData.hashes,
-        author: documentData.author,
-        documentType: selectedDocumentType,
-      };
+      // Store legal document for later use
+      setLegalDocument(legalDocument);
 
-      // Serialize as JSON
-      const jsonString = JSON.stringify(jsonObject, null, 2);
+      // Serialize LegalDocument as JSON
+      const jsonString = JSON.stringify(legalDocument, null, 2);
       setPreparedJson(jsonString);
 
       // Reset signing state when new JSON is prepared
       setSignatureFile(null);
 
       message.success(
-        `Подготовлено ${documentData.hashes.length} хешей файлов`
+        `Подготовлено ${legalDocument.documentImages.length} файлов`
       );
     } catch (error) {
       message.error(
@@ -142,7 +148,7 @@ function DocCreationCard() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = "prepared-document-hashes.json";
+    link.download = getJsonFileName(selectedDocumentType);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -164,8 +170,9 @@ function DocCreationCard() {
 
     try {
       // Create a File object from the JSON string
+      const jsonFileName = getJsonFileName(selectedDocumentType);
       const jsonBlob = new Blob([preparedJson], { type: "application/json" });
-      const jsonFile = new File([jsonBlob], "prepared-document-hashes.json", {
+      const jsonFile = new File([jsonBlob], jsonFileName, {
         type: "application/json",
       });
 
@@ -181,14 +188,14 @@ function DocCreationCard() {
       );
 
       // Create signature file data
-      const sigFileName = "prepared-document-hashes.sig";
+      const sigFileName = getSigFileName(selectedDocumentType);
       setSignatureFile({
         name: sigFileName,
         data: signatureBase64,
       });
 
       // Download signature file
-      downloadSignature(signatureBase64, "prepared-document-hashes.json");
+      downloadSignature(signatureBase64, jsonFileName);
 
       message.success("Файл успешно подписан!");
     } catch (error) {
@@ -206,7 +213,7 @@ function DocCreationCard() {
   const handleDownloadSignature = () => {
     if (!signatureFile) return;
 
-    downloadSignature(signatureFile.data, "prepared-document-hashes.json");
+    downloadSignature(signatureFile.data, getJsonFileName(selectedDocumentType));
   };
 
   const handleDownloadFile = (file: UploadFile) => {
@@ -227,6 +234,11 @@ function DocCreationCard() {
   };
 
   const handleUpload = async () => {
+    if (!legalDocument || !signatureFile || !preparedJson) {
+      message.warning("Пожалуйста, подготовьте и подпишите документ перед загрузкой");
+      return;
+    }
+
     if (fileList.length === 0) {
       message.warning("Пожалуйста, выберите файлы для загрузки");
       return;
@@ -235,7 +247,79 @@ function DocCreationCard() {
     setUploading(true);
 
     try {
-      // Upload files sequentially
+      // Upload JSON file with documentId as key
+      try {
+        const jsonFileName = getJsonFileName(selectedDocumentType);
+        const jsonBlob = new Blob([preparedJson], { type: "application/json" });
+        const jsonFile = new File([jsonBlob], jsonFileName, {
+          type: "application/json",
+        });
+
+        const jsonFormData = new FormData();
+        jsonFormData.append("file", jsonFile);
+        jsonFormData.append("key", legalDocument.documentId);
+
+        const jsonResponse = await fetch(`${API_BASE_URL}/files`, {
+          method: "POST",
+          body: jsonFormData,
+        });
+
+        if (!jsonResponse.ok) {
+          throw new Error(`JSON upload failed: ${jsonResponse.statusText}`);
+        }
+
+        const jsonData = await jsonResponse.json();
+        message.success(`JSON файл успешно загружен. Ключ: ${jsonData.key}`);
+      } catch (error) {
+        message.error(
+          `Ошибка загрузки JSON: ${
+            error instanceof Error ? error.message : "Неизвестная ошибка"
+          }`
+        );
+        throw error;
+      }
+
+      // Upload SIG file with getSigKey(document) as key
+      try {
+        const sigFileName = getSigFileName(selectedDocumentType);
+        // Decode base64 to binary (same approach as downloadSignature)
+        const binaryString = atob(signatureFile.data);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        const sigBlob = new Blob([bytes], {
+          type: "application/pkcs7-signature",
+        });
+        const sigFile = new File([sigBlob], sigFileName, {
+          type: "application/pkcs7-signature",
+        });
+
+        const sigFormData = new FormData();
+        sigFormData.append("file", sigFile);
+        sigFormData.append("key", getSigKey(legalDocument));
+
+        const sigResponse = await fetch(`${API_BASE_URL}/files`, {
+          method: "POST",
+          body: sigFormData,
+        });
+
+        if (!sigResponse.ok) {
+          throw new Error(`SIG upload failed: ${sigResponse.statusText}`);
+        }
+
+        const sigData = await sigResponse.json();
+        message.success(`SIG файл успешно загружен. Ключ: ${sigData.key}`);
+      } catch (error) {
+        message.error(
+          `Ошибка загрузки SIG: ${
+            error instanceof Error ? error.message : "Неизвестная ошибка"
+          }`
+        );
+        throw error;
+      }
+
+      // Upload original files sequentially
       for (const fileItem of fileList) {
         // Skip files that are already uploaded
         if (fileItem.status === "done") {
@@ -413,37 +497,26 @@ function DocCreationCard() {
       </div>
 
       <div style={{ marginTop: "16px", textAlign: "right" }}>
-        <Space>
-          <Button
-            onClick={handlePrepare}
-            loading={preparing}
-            disabled={
-              fileList.length === 0 ||
-              preparing ||
-              uploading ||
-              selectedCertIndex === null ||
-              selectedDocumentType === null ||
-              !author ||
-              author.trim() === ""
-            }
-          >
-            Подготовить
-          </Button>
-          <Button
-            type="primary"
-            icon={<UploadOutlined />}
-            onClick={handleUpload}
-            loading={uploading}
-            disabled={fileList.length === 0 || uploading || preparing}
-          >
-            Загрузить
-          </Button>
-        </Space>
+        <Button
+          onClick={handlePrepare}
+          loading={preparing}
+          disabled={
+            fileList.length === 0 ||
+            preparing ||
+            uploading ||
+            selectedCertIndex === null ||
+            selectedDocumentType === null ||
+            !author ||
+            author.trim() === ""
+          }
+        >
+          Подготовить
+        </Button>
       </div>
       {preparedJson && (
         <div style={{ marginTop: "16px" }}>
           <FileItem
-            name="prepared-document-hashes.json"
+            name={getJsonFileName(selectedDocumentType)}
             size={new Blob([preparedJson]).size}
             type="application/json"
             lastModified={Date.now()}
@@ -496,6 +569,25 @@ function DocCreationCard() {
           )}
         </div>
       )}
+
+      <div style={{ marginTop: "16px", textAlign: "right" }}>
+        <Button
+          type="primary"
+          icon={<UploadOutlined />}
+          onClick={handleUpload}
+          loading={uploading}
+          disabled={
+            !legalDocument ||
+            !signatureFile ||
+            !preparedJson ||
+            fileList.length === 0 ||
+            uploading ||
+            preparing
+          }
+        >
+          Загрузить
+        </Button>
+      </div>
     </div>
   );
 }
