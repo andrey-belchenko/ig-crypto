@@ -4,8 +4,8 @@ import type { UploadFile, UploadProps } from 'antd'
 import { useState } from 'react'
 import 'antd/dist/reset.css'
 
-// Backend API base URL - adjust this to match your backend server
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+// Backend API base URL - uses /api proxy in dev (avoids CORS), or explicit URL in production
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
 
 function App() {
   const [fileList, setFileList] = useState<UploadFile[]>([])
