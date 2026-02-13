@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom'
 import { Input } from 'antd'
 import { getDocument, getFileDownloadUrl, DocumentResponse } from '../api/api'
 import { FileItem } from './FileItem'
-import { downloadFileWithName } from '../domain/create-legal-doc'
+import { downloadFileWithName } from '../domain/domain-logic'
 
 function DocCard() {
   const { documentId } = useParams<{ documentId: string }>()

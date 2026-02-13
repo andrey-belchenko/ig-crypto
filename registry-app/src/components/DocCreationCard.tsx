@@ -9,7 +9,7 @@ import {
   prepareLegalDocument,
   getSigKey,
   uploadLegalDocFile,
-} from "../domain/create-legal-doc";
+} from "../domain/domain-logic";
 import { DocumentType, LegalDocument } from "../domain/domain-types";
 import {
   activatePlugin,
