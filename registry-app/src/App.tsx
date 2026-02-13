@@ -1,8 +1,10 @@
-import { Upload, Button, message } from 'antd'
-import { UploadOutlined } from '@ant-design/icons'
+import { Upload, message } from 'antd'
+import { InboxOutlined } from '@ant-design/icons'
 import type { UploadFile, UploadProps } from 'antd'
 import { useState } from 'react'
 import 'antd/dist/reset.css'
+
+const { Dragger } = Upload
 
 // Backend API base URL - uses /api proxy in dev (avoids CORS), or explicit URL in production
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
@@ -28,10 +30,10 @@ function App() {
 
       const data = await response.json()
       onSuccess?.(data, file)
-      message.success(`${file.name} uploaded successfully. Key: ${data.key}`)
+      message.success(`${file.name} успешно загружен. Ключ: ${data.key}`)
     } catch (error) {
       onError?.(error)
-      message.error(`${file.name} upload failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      message.error(`${file.name} ошибка загрузки: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`)
     }
   }
 
@@ -53,10 +55,16 @@ function App() {
 
   return (
     <div style={{ padding: '50px', maxWidth: '800px', margin: '0 auto' }}>
-      <h1>File Uploader</h1>
-      <Upload {...props}>
-        <Button icon={<UploadOutlined />}>Click to Upload</Button>
-      </Upload>
+      <h1>Загрузка файлов</h1>
+      <Dragger {...props}>
+        <p className="ant-upload-drag-icon">
+          <InboxOutlined />
+        </p>
+        <p className="ant-upload-text">Нажмите или перетащите файл в эту область для загрузки</p>
+        <p className="ant-upload-hint">
+          Поддержка загрузки одного или нескольких файлов.
+        </p>
+      </Dragger>
     </div>
   )
 }
