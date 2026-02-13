@@ -58,7 +58,7 @@ function DocCard() {
 
   return (
     <div style={{ padding: '50px', maxWidth: '800px', margin: '0 auto' }}>
-      <h1>Документ</h1>
+      {/* <h1>Документ</h1> */}
 
       <div style={{ marginBottom: '16px' }}>
         <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>

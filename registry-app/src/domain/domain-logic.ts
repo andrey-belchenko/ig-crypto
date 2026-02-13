@@ -59,6 +59,7 @@ export async function prepareLegalDocument(
     // Map files to DocumentImage objects
     const documentImages: DocumentImage[] = files.map((file, index) => {
       const imageId = uuidv4();
+      file.imageId = imageId;
       return {
         imageId,
         name: file.name,

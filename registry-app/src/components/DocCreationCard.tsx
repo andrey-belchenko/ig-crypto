@@ -265,10 +265,10 @@ function DocCreationCard() {
           continue;
         }
 
-        const key = uuidv4();
+
 
         try {
-          await uploadFile(file as File, key);
+          await uploadFile(file as File, file.imageId);
 
           // Update file status to done
           setFileList((prevList) =>
@@ -378,7 +378,7 @@ function DocCreationCard() {
 
   return (
     <div style={{ padding: "50px", maxWidth: "800px", margin: "0 auto" }}>
-      <h1>Загрузка файлов</h1>
+      {/* <h1>Регистрация документа</h1> */}
       {pluginAvailable && certificates.length > 0 && (
         <div style={{ marginBottom: "16px" }}>
           <label
