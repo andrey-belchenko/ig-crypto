@@ -2,6 +2,7 @@ import { Upload, message, Button, Typography, Space } from 'antd'
 import { InboxOutlined, UploadOutlined, FileOutlined, CheckCircleOutlined, CloseCircleOutlined, LoadingOutlined, DeleteOutlined } from '@ant-design/icons'
 import type { UploadFile, UploadProps } from 'antd'
 import { useState } from 'react'
+import { v4 as uuidv4 } from 'uuid'
 import 'antd/dist/reset.css'
 
 const { Text } = Typography
@@ -58,6 +59,8 @@ function App() {
 
         const formData = new FormData()
         formData.append('file', file as File)
+        const key = uuidv4()
+        formData.append('key', key)
 
         try {
           const response = await fetch(`${API_BASE_URL}/files`, {
