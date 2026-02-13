@@ -14,11 +14,9 @@ import {
   type Certificate,
 } from "../lib/crypto";
 import { extractNameFromDN } from "../lib/certificate-utils";
+import { uploadFile } from "../api/api";
 
 const { Dragger } = Upload;
-
-// Backend API base URL - uses /api proxy in dev (avoids CORS), or explicit URL in production
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
 
 function DocCreationCard() {
   const [fileList, setFileList] = useState<UploadFile[]>([]);
@@ -255,21 +253,13 @@ function DocCreationCard() {
           type: "application/json",
         });
 
-        const jsonFormData = new FormData();
-        jsonFormData.append("file", jsonFile);
-        jsonFormData.append("key", legalDocument.documentId);
+        const jsonResponse = await uploadFile(jsonFile, legalDocument.documentId);
 
-        const jsonResponse = await fetch(`${API_BASE_URL}/files`, {
-          method: "POST",
-          body: jsonFormData,
-        });
-
-        if (!jsonResponse.ok) {
-          throw new Error(`JSON upload failed: ${jsonResponse.statusText}`);
+        if (!jsonResponse.ok || !jsonResponse.data) {
+          throw new Error(jsonResponse.error || `JSON upload failed`);
         }
 
-        const jsonData = await jsonResponse.json();
-        message.success(`JSON файл успешно загружен. Ключ: ${jsonData.key}`);
+        message.success(`JSON файл успешно загружен. Ключ: ${jsonResponse.data.key}`);
       } catch (error) {
         message.error(
           `Ошибка загрузки JSON: ${
@@ -295,21 +285,13 @@ function DocCreationCard() {
           type: "application/pkcs7-signature",
         });
 
-        const sigFormData = new FormData();
-        sigFormData.append("file", sigFile);
-        sigFormData.append("key", getSigKey(legalDocument));
+        const sigResponse = await uploadFile(sigFile, getSigKey(legalDocument));
 
-        const sigResponse = await fetch(`${API_BASE_URL}/files`, {
-          method: "POST",
-          body: sigFormData,
-        });
-
-        if (!sigResponse.ok) {
-          throw new Error(`SIG upload failed: ${sigResponse.statusText}`);
+        if (!sigResponse.ok || !sigResponse.data) {
+          throw new Error(sigResponse.error || `SIG upload failed`);
         }
 
-        const sigData = await sigResponse.json();
-        message.success(`SIG файл успешно загружен. Ключ: ${sigData.key}`);
+        message.success(`SIG файл успешно загружен. Ключ: ${sigResponse.data.key}`);
       } catch (error) {
         message.error(
           `Ошибка загрузки SIG: ${
@@ -331,33 +313,25 @@ function DocCreationCard() {
           continue;
         }
 
-        const formData = new FormData();
-        formData.append("file", file as File);
         const key = uuidv4();
-        formData.append("key", key);
 
         try {
-          const response = await fetch(`${API_BASE_URL}/files`, {
-            method: "POST",
-            body: formData,
-          });
+          const response = await uploadFile(file as File, key);
 
-          if (!response.ok) {
-            throw new Error(`Upload failed: ${response.statusText}`);
+          if (!response.ok || !response.data) {
+            throw new Error(response.error || `Upload failed`);
           }
-
-          const data = await response.json();
 
           // Update file status to done
           setFileList((prevList) =>
             prevList.map((item) =>
               item.uid === fileItem.uid
-                ? { ...item, status: "done", response: data }
+                ? { ...item, status: "done", response: response.data }
                 : item
             )
           );
 
-          message.success(`${file.name} успешно загружен. Ключ: ${data.key}`);
+          message.success(`${file.name} успешно загружен. Ключ: ${response.data.key}`);
         } catch (error) {
           // Update file status to error
           setFileList((prevList) =>
