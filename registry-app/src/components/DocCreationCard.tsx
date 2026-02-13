@@ -3,7 +3,6 @@ import { UploadOutlined } from "@ant-design/icons";
 import type { UploadFile, UploadProps } from "antd";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { v4 as uuidv4 } from "uuid";
 import { FileItem, uploadFileToFileItemProps } from "./FileItem";
 import {
   prepareLegalDocument,
@@ -265,10 +264,18 @@ function DocCreationCard() {
           continue;
         }
 
+        // Find the corresponding DocumentImage to get the imageId
+        const documentImage = legalDocument.documentImages.find(
+          (img) => img.originalName === file.name
+        );
 
+        if (!documentImage) {
+          message.error(`Не найдено соответствие для файла ${file.name}`);
+          continue;
+        }
 
         try {
-          await uploadFile(file as File, file.imageId);
+          await uploadFile(file as File, documentImage.imageId);
 
           // Update file status to done
           setFileList((prevList) =>
@@ -277,7 +284,7 @@ function DocCreationCard() {
             )
           );
 
-          message.success(`${file.name} успешно загружен. Ключ: ${key}`);
+          message.success(`${file.name} успешно загружен. Ключ: ${documentImage.imageId}`);
         } catch (error) {
           // Update file status to error
           setFileList((prevList) =>
