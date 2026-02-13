@@ -1,10 +1,11 @@
-import { Upload, message, Button, Space, Select, Progress } from 'antd'
+import { Upload, message, Button, Space, Select, Progress, Input } from 'antd'
 import { InboxOutlined, UploadOutlined } from '@ant-design/icons'
 import type { UploadFile, UploadProps } from 'antd'
 import { useState, useEffect } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { FileItem, uploadFileToFileItemProps } from './FileItem'
 import { prepareLegalDocument } from '../domain/create-legal-doc'
+import { DocumentType } from '../domain/domain-types'
 import {
   activatePlugin,
   loadCertificates,
@@ -12,6 +13,7 @@ import {
   downloadSignature,
   type Certificate,
 } from '../lib/crypto'
+import { extractNameFromDN } from '../lib/certificate-utils'
 
 const { Dragger } = Upload
 
@@ -26,6 +28,8 @@ function DocCreationCard() {
   const [pluginAvailable, setPluginAvailable] = useState(false)
   const [certificates, setCertificates] = useState<Certificate[]>([])
   const [selectedCertIndex, setSelectedCertIndex] = useState<number | null>(null)
+  const [author, setAuthor] = useState<string>('')
+  const [selectedDocumentType, setSelectedDocumentType] = useState<DocumentType | null>(null)
   const [signing, setSigning] = useState(false)
   const [signProgress, setSignProgress] = useState(0)
   const [signatureFile, setSignatureFile] = useState<{ name: string; data: string } | null>(null)
@@ -46,6 +50,17 @@ function DocCreationCard() {
     initPlugin()
   }, [])
 
+  // Auto-fill author when certificate is selected
+  useEffect(() => {
+    if (selectedCertIndex !== null && certificates[selectedCertIndex]) {
+      const selectedCert = certificates[selectedCertIndex]
+      const extractedAuthor = extractNameFromDN(selectedCert.subjectName)
+      setAuthor(extractedAuthor)
+    } else {
+      setAuthor('')
+    }
+  }, [selectedCertIndex, certificates])
+
   const handlePrepare = async () => {
     if (fileList.length === 0) {
       message.warning('Пожалуйста, выберите файлы для подготовки')
@@ -54,6 +69,16 @@ function DocCreationCard() {
 
     if (selectedCertIndex === null || !certificates[selectedCertIndex]) {
       message.warning('Пожалуйста, выберите сертификат перед подготовкой')
+      return
+    }
+
+    if (!author || author.trim() === '') {
+      message.warning('Пожалуйста, укажите автора')
+      return
+    }
+
+    if (selectedDocumentType === null) {
+      message.warning('Пожалуйста, выберите тип документа перед подготовкой')
       return
     }
 
@@ -73,17 +98,14 @@ function DocCreationCard() {
         return
       }
 
-      // Calculate SHA256 hashes
-      const hashes = await prepareLegalDocument(files)
+      // Calculate SHA256 hashes and prepare document with author
+      const documentData = await prepareLegalDocument(files, author)
       
-      // Get author from selected certificate
-      const selectedCert = certificates[selectedCertIndex]
-      const author = selectedCert.subjectName
-      
-      // Create JSON object with hashes and author
+      // Create JSON object with hashes, author, and document type
       const jsonObject = {
-        hashes,
-        author,
+        hashes: documentData.hashes,
+        author: documentData.author,
+        documentType: selectedDocumentType,
       }
       
       // Serialize as JSON
@@ -93,7 +115,7 @@ function DocCreationCard() {
       // Reset signing state when new JSON is prepared
       setSignatureFile(null)
       
-      message.success(`Подготовлено ${hashes.length} хешей файлов`)
+      message.success(`Подготовлено ${documentData.hashes.length} хешей файлов`)
     } catch (error) {
       message.error(`Ошибка подготовки: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`)
     } finally {
@@ -302,6 +324,32 @@ function DocCreationCard() {
           />
         </div>
       )}
+      <div style={{ marginBottom: '16px' }}>
+        <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
+          Автор:
+        </label>
+        <Input
+          style={{ width: '100%' }}
+          placeholder="Автор документа"
+          value={author}
+          readOnly
+        />
+      </div>
+      <div style={{ marginBottom: '16px' }}>
+        <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
+          Выберите тип документа:
+        </label>
+        <Select
+          style={{ width: '100%' }}
+          placeholder="Выберите тип документа..."
+          value={selectedDocumentType || undefined}
+          onChange={(value) => setSelectedDocumentType(value as DocumentType)}
+          options={Object.values(DocumentType).map((type) => ({
+            value: type,
+            label: type,
+          }))}
+        />
+      </div>
       <Dragger {...props}>
         <p className="ant-upload-drag-icon">
           <InboxOutlined />
@@ -316,7 +364,7 @@ function DocCreationCard() {
           <Button
             onClick={handlePrepare}
             loading={preparing}
-            disabled={fileList.length === 0 || preparing || uploading || selectedCertIndex === null}
+            disabled={fileList.length === 0 || preparing || uploading || selectedCertIndex === null || selectedDocumentType === null || !author || author.trim() === ''}
           >
             Подготовить
           </Button>

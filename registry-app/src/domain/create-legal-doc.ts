@@ -12,18 +12,26 @@ async function calculateFileHash(file: File): Promise<string> {
 /**
  * Prepares legal document by calculating SHA256 hashes for all files
  * @param files Array of File objects to process
- * @returns Promise resolving to array of SHA256 hash strings (hex-encoded)
+ * @param author Author name for the document
+ * @returns Promise resolving to object with hashes array and author
  */
-export async function prepareLegalDocument(files: File[]): Promise<string[]> {
+export async function prepareLegalDocument(
+  files: File[],
+  author: string
+): Promise<{ hashes: string[]; author: string }> {
   if (files.length === 0) {
-    return []
+    return { hashes: [], author }
+  }
+
+  if (!author || author.trim() === '') {
+    throw new Error('Author is required')
   }
 
   try {
     // Calculate hashes in parallel for better performance
     const hashPromises = files.map(file => calculateFileHash(file))
     const hashes = await Promise.all(hashPromises)
-    return hashes
+    return { hashes, author }
   } catch (error) {
     throw new Error(`Failed to calculate file hashes: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
