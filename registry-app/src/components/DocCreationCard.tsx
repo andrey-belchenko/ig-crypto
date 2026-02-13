@@ -1,39 +1,72 @@
-import { Upload, message, Button, Typography, Space } from 'antd'
-import { InboxOutlined, UploadOutlined, FileOutlined, CheckCircleOutlined, CloseCircleOutlined, LoadingOutlined, DeleteOutlined } from '@ant-design/icons'
+import { Upload, message, Button, Space } from 'antd'
+import { InboxOutlined, UploadOutlined } from '@ant-design/icons'
 import type { UploadFile, UploadProps } from 'antd'
 import { useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
-
-const { Text } = Typography
+import { FileItem, uploadFileToFileItemProps } from './FileItem'
+import { prepareLegalDocument } from '../domain/create-legal-doc'
 
 const { Dragger } = Upload
 
 // Backend API base URL - uses /api proxy in dev (avoids CORS), or explicit URL in production
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
 
-// Helper function to format file size
-const formatFileSize = (bytes: number): string => {
-  if (bytes === 0) return '0 Bytes'
-  const k = 1024
-  const sizes = ['Bytes', 'KB', 'MB', 'GB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
-}
-
-// Helper function to format date
-const formatDate = (timestamp: number): string => {
-  return new Date(timestamp).toLocaleString('ru-RU', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
-
 function DocCreationCard() {
   const [fileList, setFileList] = useState<UploadFile[]>([])
   const [uploading, setUploading] = useState(false)
+  const [preparing, setPreparing] = useState(false)
+  const [preparedJson, setPreparedJson] = useState<string | null>(null)
+
+  const handlePrepare = async () => {
+    if (fileList.length === 0) {
+      message.warning('Пожалуйста, выберите файлы для подготовки')
+      return
+    }
+
+    setPreparing(true)
+    try {
+      // Extract File objects from fileList
+      const files: File[] = []
+      for (const fileItem of fileList) {
+        const file = fileItem.originFileObj || fileItem
+        if (file instanceof File) {
+          files.push(file)
+        }
+      }
+
+      if (files.length === 0) {
+        message.warning('Не удалось извлечь файлы для обработки')
+        return
+      }
+
+      // Calculate SHA256 hashes
+      const hashes = await prepareLegalDocument(files)
+      
+      // Serialize as JSON
+      const jsonString = JSON.stringify(hashes, null, 2)
+      setPreparedJson(jsonString)
+      
+      message.success(`Подготовлено ${hashes.length} хешей файлов`)
+    } catch (error) {
+      message.error(`Ошибка подготовки: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`)
+    } finally {
+      setPreparing(false)
+    }
+  }
+
+  const handleDownloadJson = () => {
+    if (!preparedJson) return
+
+    const blob = new Blob([preparedJson], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'prepared-document-hashes.json'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
 
   const handleUpload = async () => {
     if (fileList.length === 0) {
@@ -102,61 +135,13 @@ function DocCreationCard() {
 
   // Custom file item renderer with detailed information in a single row
   const itemRender = (_originNode: React.ReactElement, file: UploadFile, fileList: UploadFile[]) => {
-    const actualFile = file.originFileObj || file
-    const fileSize = actualFile instanceof File ? actualFile.size : file.size || 0
-    const fileType = actualFile instanceof File ? actualFile.type : file.type || 'Неизвестно'
-    const lastModified = actualFile instanceof File ? actualFile.lastModified : Date.now()
-
-    const getStatusIcon = () => {
-      if (file.status === 'uploading') return <LoadingOutlined style={{ color: '#1890ff' }} />
-      if (file.status === 'done') return <CheckCircleOutlined style={{ color: '#52c41a' }} />
-      if (file.status === 'error') return <CloseCircleOutlined style={{ color: '#ff4d4f' }} />
-      return <FileOutlined style={{ color: '#8c8c8c' }} />
-    }
-
-    return (
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '10px 12px',
-          marginBottom: '8px',
-        }}
-      >
-        <Space size="middle" style={{ flex: 1, minWidth: 0 }}>
-          <span style={{ fontSize: '16px' }}>{getStatusIcon()}</span>
-          <Space size="small" split={<span style={{ color: '#d9d9d9' }}>•</span>} style={{ flex: 1, minWidth: 0 }}>
-            <Text strong ellipsis style={{ fontSize: '14px' }}>
-              {file.name}
-            </Text>
-            <Text type="secondary" style={{ fontSize: '12px', whiteSpace: 'nowrap' }}>
-              {formatFileSize(fileSize)}
-            </Text>
-            <Text type="secondary" style={{ fontSize: '12px', whiteSpace: 'nowrap' }}>
-              {fileType.split('/')[1] || fileType}
-            </Text>
-            <Text type="secondary" style={{ fontSize: '12px', whiteSpace: 'nowrap' }}>
-              {formatDate(lastModified)}
-            </Text>
-          </Space>
-        </Space>
-        {file.status !== 'done' && (
-          <Button
-            type="text"
-            danger
-            size="small"
-            icon={<DeleteOutlined />}
-            onClick={() => {
-              const index = fileList.indexOf(file)
-              const newFileList = fileList.slice()
-              newFileList.splice(index, 1)
-              setFileList(newFileList)
-            }}
-          />
-        )}
-      </div>
-    )
+    const props = uploadFileToFileItemProps(file, fileList, () => {
+      const index = fileList.indexOf(file)
+      const newFileList = fileList.slice()
+      newFileList.splice(index, 1)
+      setFileList(newFileList)
+    })
+    return <FileItem {...props} />
   }
 
   const props: UploadProps = {
@@ -193,16 +178,39 @@ function DocCreationCard() {
         </p>
       </Dragger>
       <div style={{ marginTop: '16px', textAlign: 'right' }}>
-        <Button
-          type="primary"
-          icon={<UploadOutlined />}
-          onClick={handleUpload}
-          loading={uploading}
-          disabled={fileList.length === 0 || uploading}
-        >
-          Загрузить
-        </Button>
+        <Space>
+          <Button
+            onClick={handlePrepare}
+            loading={preparing}
+            disabled={fileList.length === 0 || preparing || uploading}
+          >
+            Подготовить
+          </Button>
+          <Button
+            type="primary"
+            icon={<UploadOutlined />}
+            onClick={handleUpload}
+            loading={uploading}
+            disabled={fileList.length === 0 || uploading || preparing}
+          >
+            Загрузить
+          </Button>
+        </Space>
       </div>
+      {preparedJson && (
+        <div style={{ marginTop: '16px' }}>
+          <FileItem
+            name="prepared-document-hashes.json"
+            size={new Blob([preparedJson]).size}
+            type="application/json"
+            lastModified={Date.now()}
+            status="ready"
+            isJson={true}
+            showDownload={true}
+            onDownload={handleDownloadJson}
+          />
+        </div>
+      )}
     </div>
   )
 }
