@@ -31,7 +31,7 @@ function App() {
       <Content>
         <Routes>
           <Route path="/" element={<DocCreationCard />} />
-          <Route path="/doc" element={<DocCard />} />
+          <Route path="/doc/:documentId" element={<DocCard />} />
         </Routes>
       </Content>
     </Layout>

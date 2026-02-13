@@ -1,18 +1,27 @@
 import { useState, useEffect } from 'react'
+import { useParams } from 'react-router-dom'
 import { Input } from 'antd'
 import { getDocument, getFileDownloadUrl, DocumentResponse } from '../api/api'
 import { FileItem } from './FileItem'
+import { downloadFileWithName } from '../domain/create-legal-doc'
 
 function DocCard() {
+  const { documentId } = useParams<{ documentId: string }>()
   const [document, setDocument] = useState<DocumentResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    if (!documentId) {
+      setError('Document ID is required')
+      setLoading(false)
+      return
+    }
+
     const fetchDocument = async () => {
       try {
         setLoading(true)
-        const doc = await getDocument('f25d681e-2706-451d-97a0-fa68a6a65afa')
+        const doc = await getDocument(documentId)
         setDocument(doc)
         setError(null)
       } catch (err) {
@@ -23,7 +32,7 @@ function DocCard() {
     }
 
     fetchDocument()
-  }, [])
+  }, [documentId])
 
   if (loading) {
     return <div>Loading...</div>
@@ -85,9 +94,6 @@ function DocCard() {
       </div>
 
       <div style={{ marginBottom: '16px' }}>
-        <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
-          Файлы:
-        </label>
         {document.images.map((image) => (
           <FileItem
             key={image.id}
@@ -96,29 +102,23 @@ function DocCard() {
             type={image.contentType}
             status="done"
             showDownload={true}
-            onDownload={() => window.open(getFileDownloadUrl(image.id), '_blank')}
+            onDownload={() => downloadFileWithName(getFileDownloadUrl(image.id), image.originalName)}
           />
         ))}
-      </div>
-
-      <div style={{ marginBottom: '16px' }}>
-        <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
-          Документ и подпись:
-        </label>
         <FileItem
           name={`${document.type}.json`}
           size={0}
           type="application/json"
           isJson={true}
           showDownload={true}
-          onDownload={() => window.open(getFileDownloadUrl(document.id), '_blank')}
+          onDownload={() => downloadFileWithName(getFileDownloadUrl(document.id), `${document.type}.json`)}
         />
         <FileItem
           name={`${document.type}.json.sig`}
           size={0}
           type="application/pkcs7-signature"
           showDownload={true}
-          onDownload={() => window.open(getFileDownloadUrl(document.id + '.sig'), '_blank')}
+          onDownload={() => downloadFileWithName(getFileDownloadUrl(document.id + '.sig'), `${document.type}.json.sig`)}
         />
       </div>
     </div>

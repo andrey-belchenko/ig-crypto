@@ -2,6 +2,7 @@ import { Upload, message, Button, Select, Input } from "antd";
 import { UploadOutlined } from "@ant-design/icons";
 import type { UploadFile, UploadProps } from "antd";
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { v4 as uuidv4 } from "uuid";
 import { FileItem, uploadFileToFileItemProps } from "./FileItem";
 import {
@@ -23,6 +24,7 @@ import { uploadFile } from "../api/api";
 const { Dragger } = Upload;
 
 function DocCreationCard() {
+  const navigate = useNavigate();
   const [fileList, setFileList] = useState<UploadFile[]>([]);
   const [uploading, setUploading] = useState(false);
   const [preparing, setPreparing] = useState(false);
@@ -289,6 +291,11 @@ function DocCreationCard() {
             }`
           );
         }
+      }
+
+      // Navigate to document view after successful upload
+      if (legalDocument) {
+        navigate(`/doc/${legalDocument.documentId}`);
       }
     } catch (error) {
       message.error(

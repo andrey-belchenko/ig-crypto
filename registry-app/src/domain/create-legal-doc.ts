@@ -1,4 +1,5 @@
 import { v4 as uuidv4 } from "uuid";
+import axios from "axios";
 import type { LegalDocument, DocumentImage } from "./domain-types";
 import { DocumentType, ImageStatus } from "./domain-types";
 import { uploadFile } from "../api/api";
@@ -96,4 +97,29 @@ export async function uploadLegalDocFile(
   file: File
 ): Promise<void> {
   await uploadFile(file, document.documentId);
+}
+
+/**
+ * Downloads a file from the given URL with a custom filename
+ * @param url The URL to download the file from
+ * @param filename The desired filename for the downloaded file
+ */
+export async function downloadFileWithName(url: string, filename: string): Promise<void> {
+  try {
+    const response = await axios.get(url, {
+      responseType: 'blob',
+    });
+    const blob = new Blob([response.data]);
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const link = window.document.createElement('a');
+    link.href = downloadUrl;
+    link.download = filename;
+    window.document.body.appendChild(link);
+    link.click();
+    window.document.body.removeChild(link);
+    window.URL.revokeObjectURL(downloadUrl);
+  } catch (error) {
+    console.error('Failed to download file:', error);
+    throw error;
+  }
 }
