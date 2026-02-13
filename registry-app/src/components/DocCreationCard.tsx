@@ -253,13 +253,9 @@ function DocCreationCard() {
           type: "application/json",
         });
 
-        const jsonResponse = await uploadFile(jsonFile, legalDocument.documentId);
+        await uploadFile(jsonFile, legalDocument.documentId);
 
-        if (!jsonResponse.ok || !jsonResponse.data) {
-          throw new Error(jsonResponse.error || `JSON upload failed`);
-        }
-
-        message.success(`JSON файл успешно загружен. Ключ: ${jsonResponse.data.key}`);
+        message.success(`JSON файл успешно загружен. Ключ: ${legalDocument.documentId}`);
       } catch (error) {
         message.error(
           `Ошибка загрузки JSON: ${
@@ -285,13 +281,9 @@ function DocCreationCard() {
           type: "application/pkcs7-signature",
         });
 
-        const sigResponse = await uploadFile(sigFile, getSigKey(legalDocument));
+        await uploadFile(sigFile, getSigKey(legalDocument));
 
-        if (!sigResponse.ok || !sigResponse.data) {
-          throw new Error(sigResponse.error || `SIG upload failed`);
-        }
-
-        message.success(`SIG файл успешно загружен. Ключ: ${sigResponse.data.key}`);
+        message.success(`SIG файл успешно загружен. Ключ: ${getSigKey(legalDocument)}`);
       } catch (error) {
         message.error(
           `Ошибка загрузки SIG: ${
@@ -316,22 +308,18 @@ function DocCreationCard() {
         const key = uuidv4();
 
         try {
-          const response = await uploadFile(file as File, key);
-
-          if (!response.ok || !response.data) {
-            throw new Error(response.error || `Upload failed`);
-          }
+          await uploadFile(file as File, key);
 
           // Update file status to done
           setFileList((prevList) =>
             prevList.map((item) =>
               item.uid === fileItem.uid
-                ? { ...item, status: "done", response: response.data }
+                ? { ...item, status: "done" }
                 : item
             )
           );
 
-          message.success(`${file.name} успешно загружен. Ключ: ${response.data.key}`);
+          message.success(`${file.name} успешно загружен. Ключ: ${key}`);
         } catch (error) {
           // Update file status to error
           setFileList((prevList) =>
