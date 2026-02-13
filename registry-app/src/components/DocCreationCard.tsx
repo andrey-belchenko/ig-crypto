@@ -1,4 +1,4 @@
-import { Upload, message, Button, Select, Progress, Input } from "antd";
+import { Upload, message, Button, Select, Input } from "antd";
 import { UploadOutlined } from "@ant-design/icons";
 import type { UploadFile, UploadProps } from "antd";
 import { useState, useEffect } from "react";
@@ -33,7 +33,6 @@ function DocCreationCard() {
   const [selectedDocumentType, setSelectedDocumentType] =
     useState<DocumentType | null>(null);
   const [signing, setSigning] = useState(false);
-  const [signProgress, setSignProgress] = useState(0);
   const [signatureFile, setSignatureFile] = useState<{
     name: string;
     data: string;
@@ -153,7 +152,7 @@ function DocCreationCard() {
     URL.revokeObjectURL(url);
   };
 
-  const handleSign = async () => {
+  const handleSignAndUpload = async () => {
     if (
       !preparedJson ||
       selectedCertIndex === null ||
@@ -163,77 +162,8 @@ function DocCreationCard() {
       return;
     }
 
-    setSigning(true);
-    setSignProgress(0);
-
-    try {
-      // Create a File object from the JSON string
-      const jsonFileName = getJsonFileName(selectedDocumentType);
-      const jsonBlob = new Blob([preparedJson], { type: "application/json" });
-      const jsonFile = new File([jsonBlob], jsonFileName, {
-        type: "application/json",
-      });
-
-      const selectedCert = certificates[selectedCertIndex];
-
-      // Sign the file
-      const signatureBase64 = await signFile(
-        jsonFile,
-        selectedCert.thumbprint,
-        (percent) => {
-          setSignProgress(percent);
-        }
-      );
-
-      // Create signature file data
-      const sigFileName = getSigFileName(selectedDocumentType);
-      setSignatureFile({
-        name: sigFileName,
-        data: signatureBase64,
-      });
-
-      // Download signature file
-      downloadSignature(signatureBase64, jsonFileName);
-
-      message.success("Файл успешно подписан!");
-    } catch (error) {
-      message.error(
-        `Ошибка подписания: ${
-          error instanceof Error ? error.message : "Неизвестная ошибка"
-        }`
-      );
-    } finally {
-      setSigning(false);
-      setSignProgress(0);
-    }
-  };
-
-  const handleDownloadSignature = () => {
-    if (!signatureFile) return;
-
-    downloadSignature(signatureFile.data, getJsonFileName(selectedDocumentType));
-  };
-
-  const handleDownloadFile = (file: UploadFile) => {
-    const actualFile = file.originFileObj || file;
-    if (!(actualFile instanceof File)) {
-      message.warning("Не удалось загрузить файл");
-      return;
-    }
-
-    const url = URL.createObjectURL(actualFile);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = actualFile.name;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
-
-  const handleUpload = async () => {
-    if (!legalDocument || !signatureFile || !preparedJson) {
-      message.warning("Пожалуйста, подготовьте и подпишите документ перед загрузкой");
+    if (!legalDocument) {
+      message.warning("Пожалуйста, подготовьте документ перед подписанием");
       return;
     }
 
@@ -242,19 +172,38 @@ function DocCreationCard() {
       return;
     }
 
+    setSigning(true);
     setUploading(true);
 
     try {
-      // Upload JSON file with documentId as key
+      // Step 1: Sign the document
+      const jsonFileName = getJsonFileName(selectedDocumentType);
+      const jsonBlob = new Blob([preparedJson], { type: "application/json" });
+      const jsonFile = new File([jsonBlob], jsonFileName, {
+        type: "application/json",
+      });
+
+      const selectedCert = certificates[selectedCertIndex];
+
+      // Sign the file (without progress callback)
+      const signatureBase64 = await signFile(
+        jsonFile,
+        selectedCert.thumbprint
+      );
+
+      // Create signature file data
+      const sigFileName = getSigFileName(selectedDocumentType);
+      const sigFileData = {
+        name: sigFileName,
+        data: signatureBase64,
+      };
+      setSignatureFile(sigFileData);
+
+      message.success("Файл успешно подписан!");
+
+      // Step 2: Upload JSON file
       try {
-        const jsonFileName = getJsonFileName(selectedDocumentType);
-        const jsonBlob = new Blob([preparedJson], { type: "application/json" });
-        const jsonFile = new File([jsonBlob], jsonFileName, {
-          type: "application/json",
-        });
-
         await uploadFile(jsonFile, legalDocument.documentId);
-
         message.success(`JSON файл успешно загружен. Ключ: ${legalDocument.documentId}`);
       } catch (error) {
         message.error(
@@ -265,11 +214,10 @@ function DocCreationCard() {
         throw error;
       }
 
-      // Upload SIG file with getSigKey(document) as key
+      // Step 3: Upload SIG file
       try {
-        const sigFileName = getSigFileName(selectedDocumentType);
-        // Decode base64 to binary (same approach as downloadSignature)
-        const binaryString = atob(signatureFile.data);
+        // Decode base64 to binary
+        const binaryString = atob(signatureBase64);
         const bytes = new Uint8Array(binaryString.length);
         for (let i = 0; i < binaryString.length; i++) {
           bytes[i] = binaryString.charCodeAt(i);
@@ -282,7 +230,6 @@ function DocCreationCard() {
         });
 
         await uploadFile(sigFile, getSigKey(legalDocument));
-
         message.success(`SIG файл успешно загружен. Ключ: ${getSigKey(legalDocument)}`);
       } catch (error) {
         message.error(
@@ -293,7 +240,7 @@ function DocCreationCard() {
         throw error;
       }
 
-      // Upload original files sequentially
+      // Step 4: Upload original files sequentially
       for (const fileItem of fileList) {
         // Skip files that are already uploaded
         if (fileItem.status === "done") {
@@ -334,10 +281,41 @@ function DocCreationCard() {
           );
         }
       }
+    } catch (error) {
+      message.error(
+        `Ошибка подписания и загрузки: ${
+          error instanceof Error ? error.message : "Неизвестная ошибка"
+        }`
+      );
     } finally {
+      setSigning(false);
       setUploading(false);
     }
   };
+
+  const handleDownloadSignature = () => {
+    if (!signatureFile) return;
+
+    downloadSignature(signatureFile.data, getJsonFileName(selectedDocumentType));
+  };
+
+  const handleDownloadFile = (file: UploadFile) => {
+    const actualFile = file.originFileObj || file;
+    if (!(actualFile instanceof File)) {
+      message.warning("Не удалось загрузить файл");
+      return;
+    }
+
+    const url = URL.createObjectURL(actualFile);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = actualFile.name;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
 
   // Custom file item renderer with detailed information in a single row
   const itemRender = (
@@ -488,27 +466,6 @@ function DocCreationCard() {
             onDownload={handleDownloadJson}
           />
 
-          {pluginAvailable &&
-            certificates.length > 0 &&
-            selectedCertIndex !== null && (
-              <div style={{ marginTop: "16px" }}>
-                <Button
-                  type="primary"
-                  onClick={handleSign}
-                  loading={signing}
-                  disabled={signing || !preparedJson}
-                  style={{ backgroundColor: "#28a745", borderColor: "#28a745" }}
-                >
-                  Подписать
-                </Button>
-                {signing && (
-                  <div style={{ marginTop: "8px" }}>
-                    <Progress percent={signProgress} status="active" />
-                  </div>
-                )}
-              </div>
-            )}
-
           {signatureFile && (
             <div style={{ marginTop: "16px" }}>
               <FileItem
@@ -536,18 +493,20 @@ function DocCreationCard() {
         <Button
           type="primary"
           icon={<UploadOutlined />}
-          onClick={handleUpload}
-          loading={uploading}
+          onClick={handleSignAndUpload}
+          loading={signing || uploading}
           disabled={
             !legalDocument ||
-            !signatureFile ||
             !preparedJson ||
             fileList.length === 0 ||
             uploading ||
-            preparing
+            signing ||
+            preparing ||
+            selectedCertIndex === null ||
+            !certificates[selectedCertIndex]
           }
         >
-          Загрузить
+          Подписать и отправить
         </Button>
       </div>
     </div>
