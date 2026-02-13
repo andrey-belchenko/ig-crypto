@@ -1,13 +1,35 @@
-import { Upload, message, Button } from 'antd'
-import { InboxOutlined, UploadOutlined } from '@ant-design/icons'
+import { Upload, message, Button, Typography, Space } from 'antd'
+import { InboxOutlined, UploadOutlined, FileOutlined, CheckCircleOutlined, CloseCircleOutlined, LoadingOutlined, DeleteOutlined } from '@ant-design/icons'
 import type { UploadFile, UploadProps } from 'antd'
 import { useState } from 'react'
 import 'antd/dist/reset.css'
+
+const { Text } = Typography
 
 const { Dragger } = Upload
 
 // Backend API base URL - uses /api proxy in dev (avoids CORS), or explicit URL in production
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
+
+// Helper function to format file size
+const formatFileSize = (bytes: number): string => {
+  if (bytes === 0) return '0 Bytes'
+  const k = 1024
+  const sizes = ['Bytes', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
+}
+
+// Helper function to format date
+const formatDate = (timestamp: number): string => {
+  return new Date(timestamp).toLocaleString('ru-RU', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
 
 function App() {
   const [fileList, setFileList] = useState<UploadFile[]>([])
@@ -76,10 +98,70 @@ function App() {
     }
   }
 
+  // Custom file item renderer with detailed information in a single row
+  const itemRender = (_originNode: React.ReactElement, file: UploadFile, fileList: UploadFile[]) => {
+    const actualFile = file.originFileObj || file
+    const fileSize = actualFile instanceof File ? actualFile.size : file.size || 0
+    const fileType = actualFile instanceof File ? actualFile.type : file.type || 'Неизвестно'
+    const lastModified = actualFile instanceof File ? actualFile.lastModified : Date.now()
+
+    const getStatusIcon = () => {
+      if (file.status === 'uploading') return <LoadingOutlined style={{ color: '#1890ff' }} />
+      if (file.status === 'done') return <CheckCircleOutlined style={{ color: '#52c41a' }} />
+      if (file.status === 'error') return <CloseCircleOutlined style={{ color: '#ff4d4f' }} />
+      return <FileOutlined style={{ color: '#8c8c8c' }} />
+    }
+
+    return (
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '10px 12px',
+          marginBottom: '8px',
+        }}
+      >
+        <Space size="middle" style={{ flex: 1, minWidth: 0 }}>
+          <span style={{ fontSize: '16px' }}>{getStatusIcon()}</span>
+          <Space size="small" split={<span style={{ color: '#d9d9d9' }}>•</span>} style={{ flex: 1, minWidth: 0 }}>
+            <Text strong ellipsis style={{ fontSize: '14px' }}>
+              {file.name}
+            </Text>
+            <Text type="secondary" style={{ fontSize: '12px', whiteSpace: 'nowrap' }}>
+              {formatFileSize(fileSize)}
+            </Text>
+            <Text type="secondary" style={{ fontSize: '12px', whiteSpace: 'nowrap' }}>
+              {fileType.split('/')[1] || fileType}
+            </Text>
+            <Text type="secondary" style={{ fontSize: '12px', whiteSpace: 'nowrap' }}>
+              {formatDate(lastModified)}
+            </Text>
+          </Space>
+        </Space>
+        {file.status !== 'done' && (
+          <Button
+            type="text"
+            danger
+            size="small"
+            icon={<DeleteOutlined />}
+            onClick={() => {
+              const index = fileList.indexOf(file)
+              const newFileList = fileList.slice()
+              newFileList.splice(index, 1)
+              setFileList(newFileList)
+            }}
+          />
+        )}
+      </div>
+    )
+  }
+
   const props: UploadProps = {
     name: 'file',
     multiple: true,
     fileList,
+    itemRender,
     beforeUpload: () => {
       // Prevent automatic upload
       return false
