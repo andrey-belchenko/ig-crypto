@@ -52,6 +52,11 @@ function DocCreationCard() {
       return
     }
 
+    if (selectedCertIndex === null || !certificates[selectedCertIndex]) {
+      message.warning('Пожалуйста, выберите сертификат перед подготовкой')
+      return
+    }
+
     setPreparing(true)
     try {
       // Extract File objects from fileList
@@ -71,12 +76,21 @@ function DocCreationCard() {
       // Calculate SHA256 hashes
       const hashes = await prepareLegalDocument(files)
       
+      // Get author from selected certificate
+      const selectedCert = certificates[selectedCertIndex]
+      const author = selectedCert.subjectName
+      
+      // Create JSON object with hashes and author
+      const jsonObject = {
+        hashes,
+        author,
+      }
+      
       // Serialize as JSON
-      const jsonString = JSON.stringify(hashes, null, 2)
+      const jsonString = JSON.stringify(jsonObject, null, 2)
       setPreparedJson(jsonString)
       
       // Reset signing state when new JSON is prepared
-      setSelectedCertIndex(null)
       setSignatureFile(null)
       
       message.success(`Подготовлено ${hashes.length} хешей файлов`)
@@ -271,6 +285,23 @@ function DocCreationCard() {
   return (
     <div style={{ padding: '50px', maxWidth: '800px', margin: '0 auto' }}>
       <h1>Загрузка файлов</h1>
+      {pluginAvailable && certificates.length > 0 && (
+        <div style={{ marginBottom: '16px' }}>
+          <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
+            Выберите сертификат:
+          </label>
+          <Select
+            style={{ width: '100%' }}
+            placeholder="Выберите сертификат..."
+            value={selectedCertIndex !== null ? selectedCertIndex.toString() : undefined}
+            onChange={(value) => setSelectedCertIndex(value ? parseInt(value) : null)}
+            options={certificates.map((cert, index) => ({
+              value: index.toString(),
+              label: cert.subjectName,
+            }))}
+          />
+        </div>
+      )}
       <Dragger {...props}>
         <p className="ant-upload-drag-icon">
           <InboxOutlined />
@@ -285,7 +316,7 @@ function DocCreationCard() {
           <Button
             onClick={handlePrepare}
             loading={preparing}
-            disabled={fileList.length === 0 || preparing || uploading}
+            disabled={fileList.length === 0 || preparing || uploading || selectedCertIndex === null}
           >
             Подготовить
           </Button>
@@ -300,7 +331,7 @@ function DocCreationCard() {
           </Button>
         </Space>
       </div>
-      {preparedJson && (
+          {preparedJson && (
         <div style={{ marginTop: '16px' }}>
           <FileItem
             name="prepared-document-hashes.json"
@@ -313,44 +344,22 @@ function DocCreationCard() {
             onDownload={handleDownloadJson}
           />
 
-          {pluginAvailable && certificates.length > 0 && (
+          {pluginAvailable && certificates.length > 0 && selectedCertIndex !== null && (
             <div style={{ marginTop: '16px' }}>
-              <Space direction="vertical" style={{ width: '100%' }} size="middle">
-                <div>
-                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
-                    Выберите сертификат для подписания:
-                  </label>
-                  <Select
-                    style={{ width: '100%' }}
-                    placeholder="Выберите сертификат..."
-                    value={selectedCertIndex !== null ? selectedCertIndex.toString() : undefined}
-                    onChange={(value) => setSelectedCertIndex(value ? parseInt(value) : null)}
-                    options={certificates.map((cert, index) => ({
-                      value: index.toString(),
-                      label: cert.subjectName,
-                    }))}
-                  />
+              <Button
+                type="primary"
+                onClick={handleSign}
+                loading={signing}
+                disabled={signing || !preparedJson}
+                style={{ backgroundColor: '#28a745', borderColor: '#28a745' }}
+              >
+                Подписать
+              </Button>
+              {signing && (
+                <div style={{ marginTop: '8px' }}>
+                  <Progress percent={signProgress} status="active" />
                 </div>
-
-                {selectedCertIndex !== null && (
-                  <div>
-                    <Button
-                      type="primary"
-                      onClick={handleSign}
-                      loading={signing}
-                      disabled={signing || !preparedJson}
-                      style={{ backgroundColor: '#28a745', borderColor: '#28a745' }}
-                    >
-                      Подписать
-                    </Button>
-                    {signing && (
-                      <div style={{ marginTop: '8px' }}>
-                        <Progress percent={signProgress} status="active" />
-                      </div>
-                    )}
-                  </div>
-                )}
-              </Space>
+              )}
             </div>
           )}
 
