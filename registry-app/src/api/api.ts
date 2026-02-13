@@ -87,12 +87,12 @@ export async function uploadFile(
   file: File,
   key: string
 ): Promise<ApiResponse<{ key: string }>> {
-  const formData = new FormData();
-  formData.append("file", file);
-  formData.append("key", key);
-
-  return apiCall<{ key: string }>("/files", {
+  return apiCall<{ key: string }>(`/files/${key}`, {
     method: "POST",
-    body: formData,
+    body: file,
+    headers: {
+      "Content-Type": file.type || "application/octet-stream",
+      "Content-Length": file.size.toString(),
+    },
   });
 }
