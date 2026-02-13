@@ -1,10 +1,17 @@
-import { Upload, message, Button, Space } from 'antd'
+import { Upload, message, Button, Space, Select, Progress } from 'antd'
 import { InboxOutlined, UploadOutlined } from '@ant-design/icons'
 import type { UploadFile, UploadProps } from 'antd'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { FileItem, uploadFileToFileItemProps } from './FileItem'
 import { prepareLegalDocument } from '../domain/create-legal-doc'
+import {
+  activatePlugin,
+  loadCertificates,
+  signFile,
+  downloadSignature,
+  type Certificate,
+} from '../lib/crypto'
 
 const { Dragger } = Upload
 
@@ -16,6 +23,28 @@ function DocCreationCard() {
   const [uploading, setUploading] = useState(false)
   const [preparing, setPreparing] = useState(false)
   const [preparedJson, setPreparedJson] = useState<string | null>(null)
+  const [pluginAvailable, setPluginAvailable] = useState(false)
+  const [certificates, setCertificates] = useState<Certificate[]>([])
+  const [selectedCertIndex, setSelectedCertIndex] = useState<number | null>(null)
+  const [signing, setSigning] = useState(false)
+  const [signProgress, setSignProgress] = useState(0)
+  const [signatureFile, setSignatureFile] = useState<{ name: string; data: string } | null>(null)
+
+  // Initialize plugin on component mount
+  useEffect(() => {
+    const initPlugin = async () => {
+      try {
+        await activatePlugin()
+        setPluginAvailable(true)
+        const certs = await loadCertificates()
+        setCertificates(certs)
+      } catch (error) {
+        console.warn('Plugin initialization failed:', error)
+        // Don't show error immediately - user might not need signing
+      }
+    }
+    initPlugin()
+  }, [])
 
   const handlePrepare = async () => {
     if (fileList.length === 0) {
@@ -46,6 +75,10 @@ function DocCreationCard() {
       const jsonString = JSON.stringify(hashes, null, 2)
       setPreparedJson(jsonString)
       
+      // Reset signing state when new JSON is prepared
+      setSelectedCertIndex(null)
+      setSignatureFile(null)
+      
       message.success(`Подготовлено ${hashes.length} хешей файлов`)
     } catch (error) {
       message.error(`Ошибка подготовки: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`)
@@ -66,6 +99,54 @@ function DocCreationCard() {
     link.click()
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
+  }
+
+  const handleSign = async () => {
+    if (!preparedJson || selectedCertIndex === null || !certificates[selectedCertIndex]) {
+      message.warning('Выберите сертификат для подписания')
+      return
+    }
+
+    setSigning(true)
+    setSignProgress(0)
+
+    try {
+      // Create a File object from the JSON string
+      const jsonBlob = new Blob([preparedJson], { type: 'application/json' })
+      const jsonFile = new File([jsonBlob], 'prepared-document-hashes.json', {
+        type: 'application/json',
+      })
+
+      const selectedCert = certificates[selectedCertIndex]
+
+      // Sign the file
+      const signatureBase64 = await signFile(jsonFile, selectedCert.thumbprint, (percent) => {
+        setSignProgress(percent)
+      })
+
+      // Create signature file data
+      const sigFileName = 'prepared-document-hashes.sig'
+      setSignatureFile({
+        name: sigFileName,
+        data: signatureBase64,
+      })
+
+      // Download signature file
+      downloadSignature(signatureBase64, 'prepared-document-hashes.json')
+
+      message.success('Файл успешно подписан!')
+    } catch (error) {
+      message.error(`Ошибка подписания: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`)
+    } finally {
+      setSigning(false)
+      setSignProgress(0)
+    }
+  }
+
+  const handleDownloadSignature = () => {
+    if (!signatureFile) return
+
+    downloadSignature(signatureFile.data, 'prepared-document-hashes.json')
   }
 
   const handleDownloadFile = (file: UploadFile) => {
@@ -231,6 +312,68 @@ function DocCreationCard() {
             showDownload={true}
             onDownload={handleDownloadJson}
           />
+
+          {pluginAvailable && certificates.length > 0 && (
+            <div style={{ marginTop: '16px' }}>
+              <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                <div>
+                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
+                    Выберите сертификат для подписания:
+                  </label>
+                  <Select
+                    style={{ width: '100%' }}
+                    placeholder="Выберите сертификат..."
+                    value={selectedCertIndex !== null ? selectedCertIndex.toString() : undefined}
+                    onChange={(value) => setSelectedCertIndex(value ? parseInt(value) : null)}
+                    options={certificates.map((cert, index) => ({
+                      value: index.toString(),
+                      label: cert.subjectName,
+                    }))}
+                  />
+                </div>
+
+                {selectedCertIndex !== null && (
+                  <div>
+                    <Button
+                      type="primary"
+                      onClick={handleSign}
+                      loading={signing}
+                      disabled={signing || !preparedJson}
+                      style={{ backgroundColor: '#28a745', borderColor: '#28a745' }}
+                    >
+                      Подписать
+                    </Button>
+                    {signing && (
+                      <div style={{ marginTop: '8px' }}>
+                        <Progress percent={signProgress} status="active" />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </Space>
+            </div>
+          )}
+
+          {signatureFile && (
+            <div style={{ marginTop: '16px' }}>
+              <FileItem
+                name={signatureFile.name}
+                size={(() => {
+                  try {
+                    return atob(signatureFile.data).length
+                  } catch {
+                    // Fallback: approximate size from base64 string
+                    return Math.floor(signatureFile.data.length * 0.75)
+                  }
+                })()}
+                type="application/pkcs7-signature"
+                lastModified={Date.now()}
+                status="ready"
+                showDownload={true}
+                onDownload={handleDownloadSignature}
+              />
+            </div>
+          )}
         </div>
       )}
     </div>
