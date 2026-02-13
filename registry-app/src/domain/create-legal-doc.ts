@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from "uuid";
 import type { LegalDocument, DocumentImage } from "./domain-types";
 import { DocumentType, ImageStatus } from "./domain-types";
+import { uploadFile } from "../api/api";
 
 /**
  * Calculates SHA256 hash for a single file
@@ -88,4 +89,11 @@ export async function prepareLegalDocument(
 
 export function getSigKey(document: LegalDocument) {
   return document.documentId + ".sig";
+}
+
+export async function uploadLegalDocFile(
+  document: LegalDocument,
+  file: File
+): Promise<void> {
+  await uploadFile(file, document.documentId);
 }

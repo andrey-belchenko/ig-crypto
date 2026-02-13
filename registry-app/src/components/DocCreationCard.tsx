@@ -4,7 +4,11 @@ import type { UploadFile, UploadProps } from "antd";
 import { useState, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { FileItem, uploadFileToFileItemProps } from "./FileItem";
-import { prepareLegalDocument, getSigKey } from "../domain/create-legal-doc";
+import {
+  prepareLegalDocument,
+  getSigKey,
+  uploadLegalDocFile,
+} from "../domain/create-legal-doc";
 import { DocumentType, LegalDocument } from "../domain/domain-types";
 import {
   activatePlugin,
@@ -23,7 +27,9 @@ function DocCreationCard() {
   const [uploading, setUploading] = useState(false);
   const [preparing, setPreparing] = useState(false);
   const [preparedJson, setPreparedJson] = useState<string | null>(null);
-  const [legalDocument, setLegalDocument] = useState<LegalDocument | null>(null);
+  const [legalDocument, setLegalDocument] = useState<LegalDocument | null>(
+    null
+  );
   const [pluginAvailable, setPluginAvailable] = useState(false);
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [selectedCertIndex, setSelectedCertIndex] = useState<number | null>(
@@ -112,7 +118,11 @@ function DocCreationCard() {
       }
 
       // Calculate SHA256 hashes and prepare document with author
-      const legalDocument = await prepareLegalDocument(files, author, selectedDocumentType!);
+      const legalDocument = await prepareLegalDocument(
+        files,
+        author,
+        selectedDocumentType!
+      );
 
       // Store legal document for later use
       setLegalDocument(legalDocument);
@@ -186,10 +196,7 @@ function DocCreationCard() {
       const selectedCert = certificates[selectedCertIndex];
 
       // Sign the file (without progress callback)
-      const signatureBase64 = await signFile(
-        jsonFile,
-        selectedCert.thumbprint
-      );
+      const signatureBase64 = await signFile(jsonFile, selectedCert.thumbprint);
 
       // Create signature file data
       const sigFileName = getSigFileName(selectedDocumentType);
@@ -203,8 +210,10 @@ function DocCreationCard() {
 
       // Step 2: Upload JSON file
       try {
-        await uploadFile(jsonFile, legalDocument.documentId);
-        message.success(`JSON файл успешно загружен. Ключ: ${legalDocument.documentId}`);
+        await uploadLegalDocFile(legalDocument, jsonFile);
+        message.success(
+          `JSON файл успешно загружен. Ключ: ${legalDocument.documentId}`
+        );
       } catch (error) {
         message.error(
           `Ошибка загрузки JSON: ${
@@ -230,7 +239,9 @@ function DocCreationCard() {
         });
 
         await uploadFile(sigFile, getSigKey(legalDocument));
-        message.success(`SIG файл успешно загружен. Ключ: ${getSigKey(legalDocument)}`);
+        message.success(
+          `SIG файл успешно загружен. Ключ: ${getSigKey(legalDocument)}`
+        );
       } catch (error) {
         message.error(
           `Ошибка загрузки SIG: ${
@@ -260,9 +271,7 @@ function DocCreationCard() {
           // Update file status to done
           setFileList((prevList) =>
             prevList.map((item) =>
-              item.uid === fileItem.uid
-                ? { ...item, status: "done" }
-                : item
+              item.uid === fileItem.uid ? { ...item, status: "done" } : item
             )
           );
 
@@ -296,7 +305,10 @@ function DocCreationCard() {
   const handleDownloadSignature = () => {
     if (!signatureFile) return;
 
-    downloadSignature(signatureFile.data, getJsonFileName(selectedDocumentType));
+    downloadSignature(
+      signatureFile.data,
+      getJsonFileName(selectedDocumentType)
+    );
   };
 
   const handleDownloadFile = (file: UploadFile) => {
@@ -315,7 +327,6 @@ function DocCreationCard() {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
   };
-
 
   // Custom file item renderer with detailed information in a single row
   const itemRender = (
