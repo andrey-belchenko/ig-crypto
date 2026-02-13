@@ -68,6 +68,23 @@ function DocCreationCard() {
     URL.revokeObjectURL(url)
   }
 
+  const handleDownloadFile = (file: UploadFile) => {
+    const actualFile = file.originFileObj || file
+    if (!(actualFile instanceof File)) {
+      message.warning('Не удалось загрузить файл')
+      return
+    }
+
+    const url = URL.createObjectURL(actualFile)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = actualFile.name
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
+
   const handleUpload = async () => {
     if (fileList.length === 0) {
       message.warning('Пожалуйста, выберите файлы для загрузки')
@@ -135,12 +152,17 @@ function DocCreationCard() {
 
   // Custom file item renderer with detailed information in a single row
   const itemRender = (_originNode: React.ReactElement, file: UploadFile, fileList: UploadFile[]) => {
-    const props = uploadFileToFileItemProps(file, fileList, () => {
-      const index = fileList.indexOf(file)
-      const newFileList = fileList.slice()
-      newFileList.splice(index, 1)
-      setFileList(newFileList)
-    })
+    const props = uploadFileToFileItemProps(
+      file,
+      fileList,
+      () => {
+        const index = fileList.indexOf(file)
+        const newFileList = fileList.slice()
+        newFileList.splice(index, 1)
+        setFileList(newFileList)
+      },
+      file.status !== 'done' ? () => handleDownloadFile(file) : undefined
+    )
     return <FileItem {...props} />
   }
 

@@ -114,7 +114,8 @@ export function FileItem({
 export function uploadFileToFileItemProps(
   file: UploadFile,
   fileList: UploadFile[],
-  onRemove?: () => void
+  onRemove?: () => void,
+  onDownload?: () => void
 ): FileItemProps {
   const actualFile = file.originFileObj || file
   const fileSize = actualFile instanceof File ? actualFile.size : file.size || 0
@@ -129,5 +130,7 @@ export function uploadFileToFileItemProps(
     status: file.status,
     showRemove: true,
     onRemove,
+    showDownload: onDownload !== undefined,
+    onDownload,
   }
 }
