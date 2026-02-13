@@ -24,6 +24,10 @@ export async function uploadFile(file: File, key: string): Promise<void> {
   });
 }
 
+export function getFileDownloadUrl(key: string): string {
+  return `${API_BASE_URL}/files/${key}`;
+}
+
 export async function getDocument(id: string): Promise<DocumentResponse> {
   const response = await axios.get<DocumentResponse>(`${API_BASE_URL}/documents/${id}`);
   return response.data;
