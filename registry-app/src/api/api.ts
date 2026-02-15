@@ -16,6 +16,13 @@ export interface ImageUploadResponse {
   sizeBytes: number;
 }
 
+/** Matches backend EnvelopeResponse<ImageUploadResponse> */
+export interface ImageEnvelopeResponse {
+  data: ImageUploadResponse[];
+  status: string;
+  error: string | null;
+}
+
 export interface DocumentResponse {
   id: string;
   payload: string;
@@ -44,7 +51,15 @@ export async function uploadImage(file: File, key: string = ""): Promise<ImageUp
   const url = key ? `${API_BASE_URL}/images/${key}` : `${API_BASE_URL}/images`;
   const formData = new FormData();
   formData.append("file", file);
-  // Let axios set Content-Type automatically with boundary for multipart/form-data
-  const response = await axios.post<ImageUploadResponse>(url, formData);
-  return response.data;
+  const response = await axios.post<ImageEnvelopeResponse>(url, formData);
+  const envelope = response.data;
+  if (envelope.status !== "OK" || !envelope.data?.length) {
+    throw new Error(envelope.error ?? "Upload failed");
+  }
+  return envelope.data[0];
+}
+
+/** Builds download URL for GET /images/{id} (ImageController.download) */
+export function getImageDownloadUrl(id: string): string {
+  return `${API_BASE_URL}/images/${id}`;
 }

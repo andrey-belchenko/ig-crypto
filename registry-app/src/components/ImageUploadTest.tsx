@@ -2,9 +2,7 @@ import { useState } from 'react';
 import { Button, Upload, message, Card, Typography, Space } from 'antd';
 import { UploadOutlined, DownloadOutlined } from '@ant-design/icons';
 import type { UploadFile } from 'antd';
-import { uploadImage, ImageUploadResponse } from '../api/api';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
+import { uploadImage, getImageDownloadUrl, ImageUploadResponse } from '../api/api';
 
 const { Title, Text } = Typography;
 
@@ -124,7 +122,7 @@ export default function ImageUploadTest() {
               <Button
                 type="primary"
                 icon={<DownloadOutlined />}
-                href={`${API_BASE_URL}/images/${uploadResult.id}`}
+                href={getImageDownloadUrl(uploadResult.id)}
                 target="_blank"
                 download
               >
