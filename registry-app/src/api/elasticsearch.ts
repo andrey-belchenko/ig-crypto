@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const ES_BASE_URL = import.meta.env.VITE_ES_BASE_URL || "http://localhost:9200";
+const ES_BASE_URL = "http://localhost:9200";
 
 const INDEX_NAME = "test_items";
 
