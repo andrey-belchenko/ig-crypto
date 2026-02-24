@@ -8,6 +8,8 @@ services:
       - discovery.type=single-node
       - xpack.security.enabled=false
       - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      - http.cors.enabled=true
+      - http.cors.allow-origin=/.*/
     volumes:
       - esdata:/usr/share/elasticsearch/data
     healthcheck:
@@ -21,6 +23,9 @@ services:
     container_name: kibana
     ports:
       - "5601:5601"
+    environment:
+      - server.cors.enabled=true
+      - server.cors.allowOrigin=*
     depends_on:
       elasticsearch:
         condition: service_healthy

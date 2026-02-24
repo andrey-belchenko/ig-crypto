@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const ES = import.meta.env.DEV ? "/es" : "http://localhost:9200";
+const ES = "http://localhost:9200";
 const INDEX = "simple_test";
 
 async function resetIndex() {
@@ -16,11 +16,16 @@ async function generateTestData() {
   }
 }
 
+async function queryTestData() {
+  const response = await axios.get(`${ES}/${INDEX}/_search`);
+  console.log(response.data);
+}
+
 function SimpleTestPage() {
   return (
     <div style={{ padding: 16 }}>
       <button onClick={generateTestData}>Generate test data</button>
-      <button onClick={generateTestData}>Query test data</button>
+      <button onClick={queryTestData}>Query test data</button>
     </div>
   );
 }
