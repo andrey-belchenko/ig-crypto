@@ -18,7 +18,7 @@ const testData = [
     internalId: "4322",
     assignedTo: "Сидоров",
     comment: "Проверка данных",
-    browserCreatedAt: new Date("2026-02-21T12:10:22.000Z"), 
+    browserCreatedAt: new Date("2026-02-21T12:10:22.000Z"),
   },
   {
     type: "ЗИС",
@@ -46,6 +46,16 @@ const testData = [
   },
 ];
 
+// https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl.html
+const query = {
+  query: {
+    bool: {
+      filter: [{ terms: { "type.keyword": ["СЗИ", "КС"] } }],
+    },
+  },
+  sort: [{ browserCreatedAt: "desc" }],
+};
+
 async function resetIndex() {
   await axios.delete(`${esUrl}/${indexName}`).catch(() => {});
   await axios.put(`${esUrl}/${indexName}`);
@@ -59,7 +69,9 @@ async function generateTestData() {
 }
 
 async function queryTestData() {
-  const response = await axios.get(`${esUrl}/${indexName}/_search`);
+  const response = await axios.post(`${esUrl}/${indexName}/_search`, query, {
+    headers: { "Content-Type": "application/json" },
+  });
   console.log(response.data);
 }
 
