@@ -3,6 +3,7 @@ import { Layout, Menu } from 'antd'
 import DocCreationCard from './components/DocCreationCard'
 import DocCard from './components/DocCard'
 import ImageUploadTest from './components/ImageUploadTest'
+import TestPage from './components/TestPage'
 import 'antd/dist/reset.css'
 
 const { Header, Content } = Layout
@@ -30,6 +31,10 @@ function App() {
               key: '/test-upload',
               label: <Link to="/test-upload">Test Image Upload</Link>,
             },
+            {
+              key: '/test',
+              label: <Link to="/test">Test</Link>,
+            },
           ]}
         />
       </Header>
@@ -38,6 +43,7 @@ function App() {
           <Route path="/" element={<DocCreationCard />} />
           <Route path="/doc/:documentId" element={<DocCard />} />
           <Route path="/test-upload" element={<ImageUploadTest />} />
+          <Route path="/test" element={<TestPage />} />
         </Routes>
       </Content>
     </Layout>
