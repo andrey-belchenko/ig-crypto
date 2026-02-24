@@ -4,6 +4,7 @@ import DocCreationCard from './components/DocCreationCard'
 import DocCard from './components/DocCard'
 import ImageUploadTest from './components/ImageUploadTest'
 import TestPage from './components/TestPage'
+import SimpleTestPage from './components/SimpleTestPage'
 import 'antd/dist/reset.css'
 
 const { Header, Content } = Layout
@@ -35,6 +36,10 @@ function App() {
               key: '/test',
               label: <Link to="/test">Test</Link>,
             },
+            {
+              key: '/test-simple',
+              label: <Link to="/test-simple">Test Simple</Link>,
+            },
           ]}
         />
       </Header>
@@ -44,6 +49,7 @@ function App() {
           <Route path="/doc/:documentId" element={<DocCard />} />
           <Route path="/test-upload" element={<ImageUploadTest />} />
           <Route path="/test" element={<TestPage />} />
+          <Route path="/test-simple" element={<SimpleTestPage />} />
         </Routes>
       </Content>
     </Layout>
