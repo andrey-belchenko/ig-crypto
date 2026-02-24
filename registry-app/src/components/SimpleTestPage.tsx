@@ -2,6 +2,7 @@ import axios from "axios";
 
 const esUrl = "http://localhost:9200";
 const indexName = "documents";
+const searchUrl = `${esUrl}/${indexName}/_search`;
 
 const testData = [
   {
@@ -69,7 +70,7 @@ async function generateTestData() {
 }
 
 async function queryTestData() {
-  const response = await axios.post(`${esUrl}/${indexName}/_search`, query, {
+  const response = await axios.post(searchUrl, query, {
     headers: { "Content-Type": "application/json" },
   });
   console.log(response.data);
