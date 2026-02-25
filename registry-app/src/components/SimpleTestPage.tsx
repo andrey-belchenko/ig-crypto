@@ -1,8 +1,9 @@
 import axios from "axios";
 
+import { API_BASE_URL } from "../api/api";
+
 const esUrl = "http://localhost:9200";
 const indexName = "documents";
-const searchUrl = `${esUrl}/${indexName}/_search`;
 
 const testData = [
   {
@@ -70,7 +71,7 @@ async function generateTestData() {
 }
 
 async function queryTestData() {
-  const response = await axios.post(searchUrl, query, {
+  const response = await axios.post(`${API_BASE_URL}/documents/search`, query, {
     headers: { "Content-Type": "application/json" },
   });
   console.log(response.data);
